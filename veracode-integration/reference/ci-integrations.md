@@ -107,15 +107,16 @@ jobs:
 - **`if: always()`** on both post-scan steps, otherwise a failing gate skips
   publication.
 
-### Pipeline scan action inputs `[v: 2026-09-15]`
+### Pipeline scan action inputs `[v: 2026-10-09 | action.yml at v1.0.25]`
 
-`vid`, `vkey`, `file`, `fail_build`, `fail_on_severity`, `fail_on_cwe`,
-`baseline_file`, `store_baseline_file`, `store_baseline_file_branch`,
-`create_baseline_from` (`standard`|`filtered`), `policy_file`,
-`veracode_policy_name`, `timeout`, `issue_details`, `summary_display`,
-`json_display`, `verbose`, `summary_output`, `summary_output_file`,
-`json_output`, `json_output_file`, `filtered_json_output_file`, `project_name`,
-`project_url`, `project_ref`, `app_id`, `development_stage`, `include`.
+`vid`, `vkey`, `file`, `token`, `fail_build`, `fail_build_error`,
+`fail_on_severity`, `fail_on_cwe`, `baseline_file`, `store_baseline_file`,
+`store_baseline_file_branch`, `create_baseline_from` (`standard`|`filtered`),
+`policy_file`, `veracode_policy_name`, `timeout`, `issue_details`,
+`summary_display`, `json_display`, `verbose`, `debug`, `summary_output`,
+`summary_output_file`, `json_output`, `json_output_file`,
+`filtered_json_output_file`, `project_name`, `project_url`, `project_ref`,
+`app_id`, `development_stage`, `include`, `artifact_name`, `workflow_app`, `esd`.
 
 **Deprecated, removal announced:** `policy_name`, `request_policy` — use
 `veracode_policy_name`.
