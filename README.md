@@ -18,8 +18,14 @@ folder that the skill reads on demand.
 - **Claude Code:** copy a skill folder into `~/.claude/skills/` (personal) or
   `.claude/skills/` in a repository (project).
 
-To build `.skill` files yourself, zip each skill folder so `SKILL.md` sits at the
-folder's root inside the archive.
+To build a `.skill` file yourself, zip the skill folder itself, so the archive
+contains `<skill-name>/SKILL.md` and `<skill-name>/reference/…`, and rename the
+`.zip` to `.skill`:
+
+```bash
+zip -r veracode-integration.skill veracode-integration
+zip -r veracode-onboarding.skill veracode-onboarding
+```
 
 ## Provenance
 
