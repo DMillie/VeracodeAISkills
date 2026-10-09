@@ -498,8 +498,9 @@ if __name__ == "__main__":
 Extend it the same way the live version was extended: a `--probe` flag that
 prints raw attribute names first, `--save-xml DIR`, `--open-only`, a
 components (inventory) table, a `found_after_scan` column on CVE rows
-(`first_found_date` later than `scan_date`), and the per-app candidate list in
-the audit (`matching_builds_detail`).
+(`first_found_date` more than a day after `scan_date`, both parsed — most CVEs
+land minutes after the scan timestamp, so a bare `>` flags almost everything),
+and the per-app candidate list in the audit (`matching_builds_detail`).
 
 ---
 

@@ -434,9 +434,13 @@ CVSS 9.8 `[v: 2026-10-02 | live]`. So:
 
 - Re-running against the same `build_id` can legitimately return more CVEs.
 - SAST flaw sets for a build do not change this way.
-- Export a `found_after_scan` flag (`first_found_date > scan date`) so reports can
-  separate **known at release** from **discovered since**. A 9.8 that appeared
-  four days after release must not read as "we shipped knowing this".
+- Export a `found_after_scan` flag so reports can separate **known at release**
+  from **discovered since**. A 9.8 that appeared four days after release must not
+  read as "we shipped knowing this".
+- **Give the comparison a tolerance.** Most CVEs carry a `first_found_date` a few
+  minutes *after* the scan's `published_date`, because results are processed after
+  the scan timestamp. A plain `first_found_date > scan_date` flags nearly every
+  row. Parse both dates (§7) and flag only when the gap exceeds a day.
 
 ### "Was it fixed after release?"
 
