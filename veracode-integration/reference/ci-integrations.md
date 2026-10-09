@@ -5,8 +5,8 @@ a separate upload step does · plugin credentials are **HMAC**, never OAuth ·
 `fail_on_severity` takes English strings while the REST API takes integers ·
 fork PRs cannot write to the GitHub Security tab.
 
-All version tags are `[v: 2026-09-15]`. Tags rot — verify before pinning, or tell
-the user you are quoting a snapshot.
+Version tags are `[v: 2026-10-09 | git ls-remote]` unless marked. Tags rot —
+verify before pinning, or tell the user you are quoting a snapshot.
 
 ---
 
@@ -59,7 +59,7 @@ jobs:
         run: mvn -B package --file pom.xml
 
       - name: Veracode Pipeline Scan
-        uses: veracode/Veracode-pipeline-scan-action@v1.0.23   # [v: 2026-09-15]
+        uses: veracode/Veracode-pipeline-scan-action@v1.0.25   # [v: 2026-10-09]
         with:
           vid: ${{ secrets.VERACODE_API_KEY_ID }}      # HMAC id, NOT an OAuth client id
           vkey: ${{ secrets.VERACODE_API_KEY_SECRET }}
@@ -70,7 +70,7 @@ jobs:
 
       - name: Convert results to SARIF
         if: always()                                   # previous step failed on purpose
-        uses: veracode/veracode-pipeline-scan-results-to-sarif@v2.0.5   # [v: 2026-09-15]
+        uses: veracode/veracode-pipeline-scan-results-to-sarif@v2.0.5   # [v: 2026-10-09]
         with:
           scan-type: pipeline
           results-json: filtered_results.json
@@ -131,16 +131,33 @@ jobs:
       - name: Build
         run: mvn -B package --file pom.xml
       - name: Veracode Upload and Scan
-        uses: veracode/veracode-uploadandscan-action@v1.1   # tag NOT re-verified
+        uses: veracode/veracode-uploadandscan-action@0.2.11   # [v: 2026-10-09] tags are 0.x — there is no v1
         with:
-          appname: 'My-Application'
+          appname: 'My-Application'          # default: ${{ github.repository }}
           createprofile: true
           filepath: 'target/app.jar'
+          version: 'Release ${{ github.ref_name }} (${{ github.run_number }})'   # = the SCAN NAME
           vid: ${{ secrets.VERACODE_API_KEY_ID }}
           vkey: ${{ secrets.VERACODE_API_KEY_SECRET }}
-          # version, sandboxname, createsandbox, failbuild, scantimeout —
-          # input names UNVERIFIED; check the action README.
+          scantimeout: 60                    # minutes to wait for results; what makes it able to break the build
+          deleteincompletescan: 1            # clear a stuck previous scan instead of failing
+          # sandboxname / createsandbox: send it to a sandbox instead of the policy scan
 ```
+
+Inputs read from the action's `action.yml` at `0.2.11` `[v: 2026-10-09]`:
+`appname`, `createprofile`, `filepath`, `version`, `vid`, `vkey` (required, some
+with defaults); `createsandbox`, `sandboxname`, `sandboxid`, `scantimeout`,
+`scanpollinginterval`, `deleteincompletescan`, `include`, `exclude`,
+`criticality`, `teams`, `policy`, `pattern`, `replacement`, `toplevel`,
+`selected`, `selectedpreviously`, `scanallnonfataltoplevelmodules`,
+`includenewmodules`, `maxretrycount`, `javawrapperversion`, `debug`. There is
+**no `failbuild` input** — without `scantimeout` the action uploads and returns
+without waiting.
+
+**Set `version` deliberately.** It becomes the scan name. Later questions like
+"the findings from the latest *release* scan" can only be answered by matching on
+scan names (`hmac-and-xml-api.md` §6), and the default
+(`Scan from Github job: …`) carries no release information.
 
 Wraps the Java API wrapper (HMAC only). Results land in the application profile
 and become queryable through everything in `findings-and-annotations.md` — this
@@ -148,8 +165,15 @@ is the bridge between CI and reporting.
 
 ## Other Veracode GitHub integrations `[v: 2026-09-15 | docs.veracode.com/r/c_about_github]`
 
-- **Veracode Workflow App** — scans all repos in an org from one config file;
-  supports Fix for SCA auto-remediation pull requests.
+- **Veracode Workflow App / GitHub Workflow Integration ("repository
+  scanning")** — scans every repo in an org from one private `veracode` repo
+  (template: `github.com/veracode/github-actions-integration`) with a central
+  `veracode.yml` and `repo_list.yml`; Pipeline Scan SAST, agent-based SCA,
+  IaC/secrets; Fix for SCA pull requests. Results reach the Platform only with
+  `analysis_on_platform: true` (default `false`). Also exists for Azure DevOps and
+  GitLab; not for Bitbucket, GitHub Enterprise Server or the US Federal region
+  `[v: 2026-10-09 | docs.veracode.com/r/SCM_integrations]`. Setup is an
+  onboarding task — the veracode-onboarding skill walks through it.
 - **Veracode Fix** — AI-generated patches from pipeline scan results, delivered
   as PRs.
 
