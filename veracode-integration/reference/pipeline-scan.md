@@ -88,6 +88,13 @@ docker pull veracode/pipeline-scan
 The ZIP is `pipeline-scan-LATEST.zip`; most CI examples download and extract it,
 then run `java -jar pipeline-scan.jar`.
 
+The **Veracode CLI** also runs a Pipeline Scan: `veracode static scan <artifact>`
+with `--fail-on-severity`, `--fail-on-cwe`, `--baseline-file`, `--results-file`,
+`--policy-file` and `--summary-output`; exit code 3 when flaws match the criteria.
+Its results stay local like any Pipeline Scan, and `veracode package` builds the
+artifact for it `[v: 2026-10-09 | docs.veracode.com/r/veracode_static_scan]`.
+Note the CLI's flags use hyphens where the JAR's use underscores.
+
 ### Flags
 
 | Flag | Purpose |

@@ -3,7 +3,9 @@
 **Traps in this file:** `severity` is exact-match (use `severity_gte`) ·
 severity lives at `finding_details.severity`, int for STATIC and string for SCA ·
 closed findings are returned by default · `include_annot=TRUE` is what makes a
-ticket sync idempotent · app `name` search is a partial match.
+ticket sync idempotent · app `name` search is a partial match · an empty
+collection has no `_embedded` key at all · findings cannot be filtered to a build
+or scan name.
 
 ---
 
@@ -17,6 +19,28 @@ ticket sync idempotent · app `name` search is a partial match.
 - `page` default 0; `size` default 50, **max 500**.
 - Response: `_embedded.applications[].guid`, `.profile.name`,
   `.profile.business_criticality`.
+- **The compliance verdict is already here:**
+  `profile.policies[].policy_compliance_status` (e.g. `DID_NOT_PASS`) plus
+  `last_policy_compliance_check_date` `[v: 2026-09-18 | live]` — see
+  `policy-and-compliance.md`. A portfolio compliance view needs no per-app call.
+
+### Filters `[v: 2026-09-15 | live]`
+
+`page`, `size`, `org`, `name`, `policy_id`, `policy_guid`, `legacy_id`,
+`business_unit`, `tag`, `policy`, `policy_compliance`, `scan_status`,
+`scan_type`, `modified_after`, `policy_compliance_checked_after`, `team`,
+`git_repo_url`, `custom_field_names`, `custom_field_values`,
+`sort_by_custom_field_name`.
+
+`legacy_id` looks up an application by its numeric XML-API `app_id` — useful
+when joining REST metadata onto XML build-scoped results. That the two ids are
+the same number in every tenant is **unverified**; spot-check one.
+
+### Visibility
+
+An account without the `noteamrestrictionapi` role sees only the applications
+its teams can see. A short list that *looks* complete is the usual symptom — see
+`auth-and-access.md`.
 
 Other documented operations (`GET /{guid}`, `POST`, `PUT`, `DELETE`) exist;
 request bodies for profile creation are **unverified** here — check the
@@ -70,7 +94,16 @@ typo and wastes a lot of debugging.
 ```
 
 This envelope shape (`_embedded.<collection>` + `page.*`) is consistent across
-`/appsec` collection endpoints.
+`/appsec` collection endpoints. **When the collection is empty, `_embedded` is
+omitted entirely** — not an empty array `[v: 2026-09-15 | live]`:
+
+```python
+items = body.get("_embedded", {}).get("findings", [])   # both levels, always
+```
+
+The collection key is not always the resource name: `/appsec/v1/policies`
+returns `_embedded.policy_versions` `[v: 2026-09-15 | live]`. Print the first
+response from any collection endpoint you have not used before.
 
 ### Finding object `[v: 2026-09-15 | Findings OpenAPI model]`
 
@@ -199,6 +232,25 @@ schema **unverified** — do not assume the `/appsec/v2/.../annotations` endpoin
 accepts SCA `issue_id`s.
 
 ---
+
+## What Findings v2 cannot do
+
+- **No scan or build selector.** `?context=` gives a sandbox's current
+  consolidated state, which reflects whichever scan ran last. If release and
+  branch builds share a sandbox, that state flips depending on which one scanned
+  last. "Findings from the newest scan named *release*" is an XML job
+  (`hmac-and-xml-api.md` §6).
+- **Do not filter on `build_id`** to fake it. A consolidated finding's `build_id`
+  is not "state as of that build"; filtering on it silently drops every flaw
+  carried over from earlier scans. It looks right on a small sample and is wrong
+  at scale. Use it only as an informational "carried over from an earlier build"
+  flag.
+- **No closed date and no "as of" parameter.** Per-finding `first_found_date` /
+  `last_seen_date` exist, but you cannot reconstruct last month's portfolio state
+  from a current-state API. Trend needs snapshots you keep, or the Reporting API.
+- **Several sandboxes, same artifact = identical finding sets** `[v: 2026-10-02 |
+  live]`. Summing per application double counts. Key on
+  `(application, context_guid, issue_id)`.
 
 ## Incremental sync
 

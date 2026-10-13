@@ -42,6 +42,26 @@ for f in sca_findings:
     print(d["cve"]["name"], d["component_filename"], d["severity"])  # severity is a str
 ```
 
+## Upload-based SCA for one specific build (XML)
+
+The Findings API gives the current consolidated SCA state. For **one build**
+(for example the newest release scan), read the `software_composition_analysis`
+section of `detailedreport.do` — HMAC only. Two levels: `<component>` is the
+inventory and its `<vulnerability>` children are the CVEs. Full attribute sets
+and parse guards: `hmac-and-xml-api.md` §7–8.
+
+Facts that change how SCA is reported `[v: 2026-10-02 | live]`:
+
+- **A build's SCA results grow after the scan.** Veracode re-matches newly
+  published CVEs against existing inventory without a rescan; 7 of 237 CVEs in
+  one tenant appeared up to 8 days after their build was scanned. Separate
+  "known at release" from "discovered since".
+- `first_found_date` is when Veracode first saw the CVE **in this application**,
+  not when the CVE was published. No publication date exists in the upload-based
+  results; for CVE age use the agent-based API or NVD.
+- There is **no open/closed status** on an upload-based SCA vulnerability, only a
+  `mitigation` true/false flag.
+
 ## Agent-based SCA REST API `[v: 2026-09-15 | docs.veracode.com/r/c_sourceclear_intro]`
 
 Base path `/srcclr/v3`. Spec: Veracode SCA Agent API Specification v3.0 on
