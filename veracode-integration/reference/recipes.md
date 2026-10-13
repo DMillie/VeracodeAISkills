@@ -267,13 +267,25 @@ def portfolio_compliance(vc):
     return rows
 
 
-def breaching_findings(vc, app_name):
-    """The offending flaws for one app, plus the grace-period clock."""
+def breaching_findings(vc, app_name, sandbox=None):
+    """The offending flaws for one app (or one of its sandboxes), plus the
+    grace-period clock. Sandbox results are evaluated against the policy for
+    information only; they never change the verdict."""
     app = vc.app_guid(app_name)
+    params = {"violates_policy": "TRUE", "include_exp_date": "TRUE"}
+    if sandbox:
+        params["context"] = vc.sandbox_guid(app, sandbox)
     return [f for f in vc.paged(
-                f"{vc.base}/appsec/v2/applications/{app}/findings", "findings",
-                {"violates_policy": "TRUE", "include_exp_date": "TRUE"})
+                f"{vc.base}/appsec/v2/applications/{app}/findings", "findings", params)
             if f["finding_status"]["status"] == "OPEN"]
+
+
+def summary(vc, app_name, sandbox=None):
+    """Severity counts and scan metadata. Field names are UNVERIFIED: print the
+    first response and pin them. A wrong name gives null, not an error."""
+    app = vc.app_guid(app_name)
+    params = {"context": vc.sandbox_guid(app, sandbox)} if sandbox else {}
+    return vc.get(f"{vc.base}/appsec/v2/applications/{app}/summary_report", params=params)
 ```
 
 Compare `status` to the enum, never `"DID NOT PASS" in status` — the underscores

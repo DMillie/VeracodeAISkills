@@ -9,6 +9,12 @@ Everything here was hit for real while building a Veracode → Power BI proof of
 concept on Power BI Pro, browser-only `[v: 2026-09-18 | live]` unless tagged
 otherwise.
 
+This file covers **where** the calls can run. For **what** to call, also read:
+`findings-and-annotations.md` (Findings v2 fields, filters, envelope),
+`policy-and-compliance.md` (the verdict on the applications list),
+`reporting.md` (the async Reporting API and its six-month window) and
+`recipes.md` (the extractor patterns).
+
 ---
 
 ## The line that matters is depth of detail, not data volume

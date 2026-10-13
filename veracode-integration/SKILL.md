@@ -23,7 +23,7 @@ detail lives in `reference/` — read the file you need, not all of them.
 | Findings for a **specific build or scan name** ("the latest release scan"), per-scan diffs, anything XML (`*.do`) | `reference/hmac-and-xml-api.md` |
 | HMAC signing, `veracode-api-signing`, Postman/other-language signers, region from the key prefix | `reference/hmac-and-xml-api.md` |
 | SIEM, portfolio-wide extract, scheduled reports, Custom PDF report | `reference/reporting.md` |
-| Power BI, Power Query, Microsoft Fabric | `reference/power-bi-and-fabric.md` |
+| Power BI, Power Query, Microsoft Fabric | `reference/power-bi-and-fabric.md`, then `reference/reporting.md` and `reference/findings-and-annotations.md` for the data itself |
 | "Did it pass policy?", policy as code, grace periods | `reference/policy-and-compliance.md` |
 | SCA, SBOM, open-source components, agent-based scans | `reference/sca-and-dast.md` |
 | DAST / Dynamic Analysis | `reference/sca-and-dast.md` |
