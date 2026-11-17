@@ -1,0 +1,11 @@
+# Evidence register: CLI
+
+| ID | Basis | Checked | Source or observation | Claim as written in the skill | File |
+|---|---|---|---|---|---|
+| CLI-01 | lab | 2026-11-11 | observed in the lab | `veracode scan --type directory --source . --format table --output file.txt` writes the table to the file and only INF lines to stdout; `cat` the file in CI. Uses the HMAC credentials from `VERACODE_API_KEY_ID/SECRET`; no agent token. On a Flask 1.1.2 app it reported 40 rows (CRITICAL..MEDIUM) from the pinned requirements. | `shared/reference/facts/veracode-cli.md` |
+| CLI-02 | carried | 2026-10 | 2026-10 | `veracode scan --type image --source name:tag` scans from the docker daemon; a `docker save` tarball read as empty and clean. | `shared/reference/facts/veracode-cli.md` |
+| CLI-03 | lab | 2026-11-11 | observed in the lab | The CLI ignored `~/.veracode/credentials` in the documented `[default]` ini form and said "credentials undefined"; it works with the two environment variables exported. | `shared/reference/facts/veracode-cli.md` |
+| CLI-04 | lab | 2026-11-17 | CLI 2.55.0, one repository | `veracode scan static <path>` packages and scans a git checkout; `veracode findings static list <path> --json` exports the cached findings. These scans do not appear in the Platform. | `shared/reference/facts/veracode-cli.md` |
+| CLI-05 | lab | 2026-11-17 | observed in the lab | On a pnpm workspace it built four artifacts (workspace root plus one per package) and reported `SUCCESS`, 22 findings. 12 is correct: the per-package artifacts repeat 10 findings under shorter paths (`src/...` instead of `packages/api/src/...`) and miss the two that cross packages. Group by artifact and remove repeats before quoting a count. | `shared/reference/facts/veracode-cli.md` |
+| CLI-06 | lab | 2026-11-17 | observed in the lab | The packager warned that the npm build failed for two packages and still exited successfully. | `shared/reference/facts/veracode-cli.md` |
+| CLI-07 | lab | 2026-11-17 | observed in the lab | The checkout needs a URL-style `origin` remote; with a local-path remote the scan stops after packaging with `invalid asset name format: unknown`. | `shared/reference/facts/veracode-cli.md` |

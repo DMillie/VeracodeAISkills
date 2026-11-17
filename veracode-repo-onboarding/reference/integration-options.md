@@ -6,7 +6,7 @@ Research snapshot: 2026-11-12 UTC. Web sources only. No credentials appear in th
 
 - **docs only (read 2026-11-12)**: taken from a vendor page, script or public API response on that date. Not executed locally.
 - **observed (2026-11-12)**: an HTTP status / API response seen directly (HEAD or GET), not a documented promise. Undocumented URL patterns can change without notice.
-- **verified locally 2026-11-12**: executed on the demo host / the local GitLab 19.5.4 CE that day; details in `reference/integration/verified-locally.md`.
+- **verified locally 2026-11-12**: executed on the demo host / the local GitLab 19.5.4 CE that day; details in `evidence/verified-locally-2026-11-12.md` in the source repository.
 - **not confirmed** / **not reachable**: could not be established from a source; do not rely on it.
 - Quotes are kept under 15 words; everything else is paraphrased.
 
@@ -35,4 +35,3 @@ Open items to verify locally: plain vs `cmd-` image variants; `--policy_file` co
 | 4. Veracode CLI versions | `reference/integration/cli-install.md` | installing one exact CLI version in a job |
 | 5. SCA agent in CI | `reference/integration/sca-agent-ci.md` | running the SCA agent without piping an install script into a shell |
 | 6. Direct downloads | `reference/integration/direct-downloads.md` | fetching the Pipeline Scan zip or the Java API wrapper by version |
-| 8. Verified locally | `reference/integration/verified-locally.md` | checking whether a behaviour above was observed or only read |

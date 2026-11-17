@@ -39,22 +39,22 @@ endpoint map · 6 Picking a build by scan name · 7 Parsing `detailedreport.do` 
 
 The same service account can hold both. Putting the OAuth secret into an HMAC
 signer fails with `does not seem to be hexadecimal` (library validation) or
-`Non-hexadecimal digit found` (raw codec) `[v: 2026-10-02 | live]`. When you see
+`Non-hexadecimal digit found` (raw codec) [INT-40]. When you see
 either, the fix is the other credential pair, not a code change.
 
-### Lifecycle `[v: 2026-10-09 | docs.veracode.com/r/HMAC_credentials]`
+### Lifecycle [INT-41~]
 
 - **One active HMAC pair per user.** Generating a new pair revokes the previous one
   **24 hours later** — that window is the rotation grace period.
 - Pairs expire after **one year** (the organization's maximum TTL; changing it
   needs Veracode Support).
 - **Human users cannot hold API roles** — assigning one returns
-  `400 "Cannot assign API roles to human user"` `[v: 2026-09-15 | live]`. A
+  `400 "Cannot assign API roles to human user"` [INT-42]. A
   human's HMAC keys authenticate, then most calls `403`. Automation belongs on an
   **API service account**. See `identity.md` for creating keys for one without
   logging in as it.
 
-### Region from the key prefix `[v: 2026-10-09 | veracode-api-signing 26.5.0 source]`
+### Region from the key prefix [INT-43~]
 
 A region-scoped credential looks like `vera01ei-<hex>`: an **8-character** prefix,
 a hyphen, then the hex value. The **7th character** (index 6) names the region:
@@ -70,7 +70,7 @@ It reports the region name but **does not choose the host for you** — map it:
 | EU | `api.veracode.eu` | `https://analysiscenter.veracode.eu/api` |
 | FedRAMP (US Federal) | `api.veracode.us` | `https://analysiscenter.veracode.us/api` |
 
-`[v: 2026-10-09 | docs.veracode.com/r/Region_Domains_for_Veracode_APIs]` —
+[INT-44~] —
 only the global XML host has been exercised live by this KB.
 
 ```python
@@ -90,7 +90,7 @@ def xml_base():
 ## 3. Signing with Veracode's library
 
 **Use `veracode-api-signing` (PyPI, Veracode's own, MIT). Do not hand-roll the
-signature in Python.** `[v: 2026-10-09 | 26.5.0]`
+signature in Python.** [INT-45~]
 
 ```bash
 pip install requests veracode-api-signing
@@ -166,7 +166,7 @@ except (VeracodeAPISigningException, ValueError):
              "or the OAuth client secret was used (it is not hex and will not sign).")
 ```
 
-### `veracode-api-py` and XML `[v: 2026-10-09 | 0.9.68 source]`
+### `veracode-api-py` and XML [INT-46~]
 
 The wrapper exposes `get_app_list`, `get_sandbox_list`, `get_build_list`,
 `get_detailed_report` and friends. Two things to know:
@@ -193,7 +193,7 @@ header  = "VERACODE-HMAC-SHA-256 id={key_id},ts={timestamp_ms},nonce={HEX(nonce)
 ```
 
 The two details that turn a hand-rolled signer into an unexplained `401`
-`[v: 2026-10-02 | verified against the library]`:
+[INT-47~]:
 
 1. The constant is **`vcode_request_version_1`** — not `vcode_request_version_v1`.
 2. A region prefix is stripped from **both** the ID and the secret, and the
@@ -205,7 +205,7 @@ badly drifted clock fails.
 ### Postman pre-request script
 
 Tested with Newman against signatures produced by `veracode-api-signing`
-`[v: 2026-10-02]`. Set `api_id` / `api_key` as environment variables.
+[INT-48~]. Set `api_id` / `api_key` as environment variables.
 
 ```javascript
 const CryptoJS = require('crypto-js');
@@ -235,8 +235,7 @@ runs, or the signed URL and the sent URL differ.
 
 ## 5. XML endpoint map
 
-Host per §2. Paths follow Veracode's docs `[v: 2026-10-09 | docs.veracode.com
-r_getapplist, r_getbuildlist]` where checked; `veracode-api-py` 0.9.68 calls
+Host per §2. Paths follow Veracode's docs [INT-49~] where checked; `veracode-api-py` 0.9.68 calls
 `/4.0/` for `getapplist.do` and `getbuildlist.do`, and both versions are served.
 All are `GET` with query parameters unless noted.
 
@@ -281,11 +280,11 @@ def newest_matching_build(builds, pattern=r"release"):
     return max(matching, default=None)      # None -> record NO_SCAN_NAME_MATCHED
 ```
 
-`[v: 2026-10-02 | live]` — selected the older `… Release 2.4` build past a newer
+[INT-50] — selected the older `… Release 2.4` build past a newer
 `… Static` branch scan, and the newest of two matching builds when two existed.
 
 - **`<build>` carried no date for sandbox builds** — only `build_id` and
-  `version` `[v: 2026-10-02 | live]`. Policy builds may carry
+  `version` [INT-51]. Policy builds may carry
   `policy_updated_date` (docs), but that is when policy was last evaluated, not
   when the scan ran. Order by `build_id` either way, and take the scan date from
   the detailed report afterwards (§7).
@@ -325,8 +324,7 @@ def newest_matching_build(builds, pattern=r"release"):
    attribute, fall back to the ancestor.
 3. **SCA is two levels.** `<component>` is inventory; its `<vulnerability>`
    children are the findings. Parsing only components gives a severity-less list
-   that looks like data `[v: 2026-10-02 | live — 121 component rows, 0 severities;
-   the 237 CVEs were one level down]`.
+   that looks like data [INT-52~].
 4. **In-band errors.** XML APIs report errors as an `<error>` root with **HTTP
    200**. Check the root tag before treating a response as "no builds" or "no
    flaws".
@@ -369,7 +367,7 @@ def sca_rows(root):
             yield {**{f"component_{k}": val for k, val in comp.attrib.items()}, **v.attrib}
 ```
 
-### Attribute sets seen live `[v: 2026-10-02 | live]`
+### Attribute sets seen live [INT-53]
 
 `<component>`: `added_date`, `component_affects_policy_compliance`,
 `component_id`, `description`, `file_name`, `library`, `library_id`,
@@ -419,7 +417,7 @@ def parse_veracode_date(s):
 - `mitigation` is a `true`/`false` flag, not a status.
 - `severity_desc` is Veracode's own label and is authoritative. A CVSS band
   derived locally (≥9 Very High, ≥7 High, ≥4 Medium, >0 Low, 0 Informational)
-  agreed on 237/237 rows `[v: 2026-10-02 | live]`.
+  agreed on 237/237 rows [INT-54].
 - `cwe_id` is absent on some CVEs — Veracode does not assign one to every CVE.
 - `first_found_date` = when Veracode first saw that CVE **in this application**.
   It is **not** the CVE publication date, and there is **no** publication date in
@@ -430,7 +428,7 @@ def parse_veracode_date(s):
 Veracode re-matches newly published CVEs against the component inventory of
 earlier scans **without a rescan**. Observed: 7 of 237 CVEs had a
 `first_found_date` up to 8 days **after** the build was scanned, including a
-CVSS 9.8 `[v: 2026-10-02 | live]`. So:
+CVSS 9.8 [INT-55]. So:
 
 - Re-running against the same `build_id` can legitimately return more CVEs.
 - SAST flaw sets for a build do not change this way.

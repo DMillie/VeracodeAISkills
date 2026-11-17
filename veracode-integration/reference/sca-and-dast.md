@@ -24,7 +24,7 @@ writing anything.
 If a user asks to "get SCA findings for application X" and their results live in
 agent-based scans, the Findings API will return nothing and look broken.
 
-## Upload-based SCA via the Findings API `[v: 2026-09-15 | Findings OpenAPI model]`
+## Upload-based SCA via the Findings API [INT-82~]
 
 `GET /appsec/v2/applications/{guid}/findings?scan_type=SCA`
 
@@ -50,7 +50,7 @@ section of `detailedreport.do` — HMAC only. Two levels: `<component>` is the
 inventory and its `<vulnerability>` children are the CVEs. Full attribute sets
 and parse guards: `hmac-and-xml-api.md` §7–8.
 
-Facts that change how SCA is reported `[v: 2026-10-02 | live]`:
+Facts that change how SCA is reported [INT-83]:
 
 - **A build's SCA results grow after the scan.** Veracode re-matches newly
   published CVEs against existing inventory without a rescan; 7 of 237 CVEs in
@@ -62,7 +62,7 @@ Facts that change how SCA is reported `[v: 2026-10-02 | live]`:
 - There is **no open/closed status** on an upload-based SCA vulnerability, only a
   `mitigation` true/false flag.
 
-## Agent-based SCA REST API `[v: 2026-09-15 | docs.veracode.com/r/c_sourceclear_intro]`
+## Agent-based SCA REST API [INT-84~]
 
 Base path `/srcclr/v3`. Spec: Veracode SCA Agent API Specification v3.0 on
 SwaggerHub.
@@ -108,7 +108,7 @@ confirmed.
 | Model | Analyses containing URL scans, linked to app profiles | Separate product surface |
 | Results | Findings API, `scan_type=DYNAMIC` | unverified |
 
-## Dynamic Analysis REST API `[v: 2026-09-15 | docs.veracode.com/r/c_dynamic_intro]`
+## Dynamic Analysis REST API [INT-85~]
 
 Base path: `https://api.veracode.com/was/configservice/v1`
 

@@ -1,31 +1,25 @@
 # Tools and images
 
-- `veracode/pipeline-scan` (pinned `26.11.0@sha256:…` in the component; facts first observed on `latest`): Alpine, OpenJDK 11, jar at `/opt/veracode/pipeline-scan.jar`;
-  `curl`, `wget`, `zip`, `unzip` present. **[live 2026-11-11]**
-- `veracode/api-wrapper-java` (pinned `26.10.20.1@sha256:…`): Alpine, jar at `/opt/veracode/api-wrapper.jar`
-  (`-action UploadAndScan` etc.); `curl` present. **[live 2026-11-11]**
-- Both images run as **uid 1000 (`luser`)**. GitLab Runner 19.5 (docker executor) reuses a build
-  volume per concurrency slot; when a root-image job created the checkout directory (root, 0755)
-  a later job in these images could not write `results.json` on that slot ("Permission denied";
-  intermittent, slot-dependent). The component runs these jobs with `image:docker:user: root`.
-  **[live 2026-11-11]**
-- No official `veracode/veracode-cli` image on Docker Hub (pull denied). The component downloads
+- `veracode/pipeline-scan` (pinned `26.11.0@sha256:…` in the component): Alpine, OpenJDK 11, jar at
+  `/opt/veracode/pipeline-scan.jar`; `curl`, `wget`, `zip`, `unzip` present. [IMG-01]
+- `veracode/api-wrapper-java` (pinned `26.10.20.1@sha256:…`): Alpine, jar at
+  `/opt/veracode/api-wrapper.jar` (`-action UploadAndScan` etc.); `curl` present. [IMG-02]
+- Both images run as **uid 1000**. A GitLab Runner docker executor reuses a build volume per
+  concurrency slot; after a root-image job created the checkout, a job in these images cannot
+  write `results.json` ("Permission denied", intermittent). The component runs these jobs with
+  `image:docker:user: root`. [IMG-03]
+- There is no official `veracode/veracode-cli` image (pull denied). The component downloads
   `veracode-cli_<version>_linux_x86.tar.gz` and checks its SHA-256 instead of piping Veracode's
-  install script into a shell. That script (`…/veracode-cli/install`, honours
-  `VERACODE_CLI_VERSION`) writes `./veracode` into the
-  **current directory**, so install outside the tree you will scan (a directory scan of `.` after
-  installing there reported the CLI's own Go modules: docker, golang.org/x/net, stdlib…). Works on
-  Alpine 3 (`docker:27`) and installs 2.55.0. **[live 2026-11-11]**
+  install script into a shell. That script writes `./veracode` into the **current directory**:
+  install outside the tree you will scan, or a directory scan reports the CLI's own Go modules.
+  [IMG-04]
 - SCA agent: the component downloads `srcclr-<version>-linux[_musl_x64].tgz`, checks the SHA-256
-  and runs `bin/srcclr scan`; it does not execute `ci.sh`. For reference, the bootstrap
-  `https://download.sourceclear.com/ci.sh` (= `sca-downloads.veracode.com/ci.sh`, honours
-  `SRCCLR_VERSION`, verifies nothing): downloads the agent to
-  `$CACHE_DIR/srcclr` (default `/tmp`), runs `scan --allow-dirty` when given no arguments, appends
-  `--json` when `SRCCLR_CI_JSON=1`, refuses non-x86_64 Linux. Needs `curl` and the project's
-  package manager in the image. **[live 2026-11-11, script read; scan verified in CI, see lab run 1]**
-- All four are x86_64-only; on arm64 runners use `amd64/` images with platform `linux/amd64`.
-  A multi-arch tag pulled for arm64 broke the next amd64 pull on a shared daemon. **[2026-10]**
-- The CLI's credential check timed out under emulation and still exited 0: check output files,
-  not exit codes. **[2026-10]**
+  and runs `bin/srcclr scan`; it does not execute `ci.sh` (which verifies nothing). The image
+  needs `curl` and the project's package manager. [IMG-05]
+- All four tools are x86_64-only; on arm64 runners use `amd64/` images with platform
+  `linux/amd64`. A multi-arch tag pulled for arm64 can break the next amd64 pull on a shared
+  daemon. [IMG-06?]
+- Under emulation the CLI's credential check can time out and still exit 0: check output files,
+  not exit codes. [IMG-07?]
 
-Tags: **[live <date>]** observed in the lab on that date; **[2026-10, not re-verified]** carried over, check before relying on it.
+`[ID]` = entry in the evidence register (`evidence/` in the source repository). `~` = read, not run. `?` = carried over, not re-verified: check before relying on it.

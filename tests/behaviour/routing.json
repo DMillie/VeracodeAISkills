@@ -1,0 +1,19 @@
+{
+ "skills_note": "Judge by the front matter of each SKILL.md only.",
+ "questions": [
+  {"n": 1, "request": "Add Veracode scanning to this repo's GitLab pipeline.", "expect": "veracode-repo-onboarding"},
+  {"n": 2, "request": "We use git-flow with release branches. Where should the policy scan run and where the pipeline scan?", "expect": "veracode-repo-onboarding"},
+  {"n": 3, "request": "Our Pipeline Scan is green with zero findings on a real app. Is the upload wrong?", "expect": "veracode-packaging-proof"},
+  {"n": 4, "request": "Which files should go into the zip we upload for this pnpm monorepo, and how do I know it is right?", "expect": "veracode-packaging-proof"},
+  {"n": 5, "request": "Set up one shared Veracode CI template for all our GitLab projects that teams include by version.", "expect": "veracode-gitlab-component"},
+  {"n": 6, "request": "Upgrade the central Veracode component to a new release and move teams from warn to block.", "expect": "veracode-gitlab-component"},
+  {"n": 7, "request": "Write a Python script that pulls all open findings for an application from the Veracode REST API.", "expect": "veracode-integration"},
+  {"n": 8, "request": "My HMAC-signed call to the Veracode API returns 401. What is wrong?", "expect": "veracode-integration"},
+  {"n": 9, "request": "Build a Power BI report of policy compliance across our Veracode applications.", "expect": "veracode-integration"},
+  {"n": 10, "request": "I am a new Veracode admin. Walk me through creating teams, users and the first application profile.", "expect": "veracode-onboarding"},
+  {"n": 11, "request": "Draft a kickoff agenda and a 30-60-90 day plan for a customer starting with Veracode.", "expect": "veracode-onboarding"},
+  {"n": 12, "request": "This repo was onboarded to Veracode last year with a copied CI file. Bring it up to date.", "expect": ["veracode-repo-onboarding", "veracode-gitlab-component"]},
+  {"n": 13, "request": "Fix the SQL injection Veracode found in OrderController.java.", "expect": "none"},
+  {"n": 14, "request": "Add SonarQube analysis to our Jenkins pipeline.", "expect": "none"}
+ ]
+}

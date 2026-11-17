@@ -4,7 +4,7 @@ Two jobs: tell you which API family owns a problem, and give the spec URL to
 verify against. Also serves as the **staleness checklist** — re-run the `Verified`
 column periodically.
 
-Provenance: `[v: date | source]`. **Untagged or marked *unverified* = do not
+Evidence IDs (`[INT-nn]`, `~` = read not run) are explained in SKILL.md §2. **Untagged or marked *unverified* = do not
 assert it. Name the spec and let the user confirm.**
 
 ## Base URLs
@@ -15,14 +15,14 @@ assert it. Name the spec and let the user confirm.**
 | European Union | `https://api.veracode.eu` | `https://analysiscenter.veracode.eu/api` |
 | US Federal (FedRAMP) | `https://api.veracode.us` | `https://analysiscenter.veracode.us/api` |
 
-`[v: 2026-10-09 | docs.veracode.com/r/Region_Domains_for_Veracode_APIs]`
+[INT-04~]
 
 Always parameterise this. Regional accounts are common and a hardcoded host fails
 with a confusing auth error, not a clear one. An HMAC key ID's prefix encodes the
 region (`hmac-and-xml-api.md` §2); an OAuth client ID does not, so OAuth users
 must say which region they are in.
 
-## REST API families `[v: 2026-09-15 | docs.veracode.com/r/c_rest_intro]`
+## REST API families [INT-05~]
 
 | API | Base path | Purpose | KB file | Verified |
 |---|---|---|---|---|
@@ -115,7 +115,7 @@ docs.veracode.com/r/c_custom_pdf_api                Custom PDF API
 | Tool | Auth | Notes |
 |---|---|---|
 | `veracode-api-py` (PyPI) | HMAC | Python wrapper; broad REST coverage plus XML calls (raw bytes back). 0.9.68's XML calls hardcode the US Commercial host |
-| `veracode-api-signing` (PyPI) | HMAC | `RequestsAuthPluginVeracodeHMAC`, `generate_veracode_hmac_header`, the `veracode_hmac_auth` CLI and an httpie plugin. 26.5.0 `[v: 2026-10-09]` |
+| `veracode-api-signing` (PyPI) | HMAC | `RequestsAuthPluginVeracodeHMAC`, `generate_veracode_hmac_header`, the `veracode_hmac_auth` CLI and an httpie plugin. 26.5.0 [INT-06~] |
 | Java API wrapper | HMAC | What the Upload & Scan CI plugins wrap |
 | Pipeline Scan JAR / Docker | HMAC | `veracode/pipeline-scan` on Docker Hub — preferred over the ZIP |
 | `Veracode-Community-Projects` (GitHub) | varies | Community automation, unsupported |

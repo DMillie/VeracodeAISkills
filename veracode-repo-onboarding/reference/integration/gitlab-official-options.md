@@ -40,7 +40,7 @@ Catalog search for "veracode" (GitLab GraphQL `ciCatalogResources`) returned 8 r
 | These components are **not mentioned on docs.veracode.com** (no sitemap page for components/catalog). Support status ("official, supported product" vs open-source/community) is **not confirmed**. All versions are 0.0.x; tag naming changed from `v0.0.N` to `0.0.N`. | https://docs.veracode.com/sitemap.xml | docs only (read 2026-11-12) |
 | veracode-pipeline-scan template (main): default image `veracode/scm-packaging:5.0.0`; inputs include `vid`, `vkey`, `artifactsfolder`, `veracode_policy_name` (default 'Veracode Recommended Medium + SCA'), `policy_file`, `fail_on_severity`, `fail_on_cwe`, `baseline_file`, `app_id`, `development_stage`, `store_baseline_file`, `allow_failure`; `fail_build` is documented in the template as not enforced. | https://gitlab.com/veracode/veracode-components/veracode-pipeline-scan/-/blob/main/templates/veracode-pipeline-scan.yml | docs only (read 2026-11-12) |
 | At job time the component git-clones its own repo from `$CI_SERVER_HOST/veracode/veracode-components/...`, checks out the component SHA and runs a compiled Node script. Consequence: it needs network access to that project path on the same GitLab host; on self-managed that path would have to be mirrored. Job rules are fixed to push and merge-request pipelines. | same | docs only (read 2026-11-12) |
-| Behaviour of the component in our pipelines | - | verified locally 2026-11-12 (`reference/integration/verified-locally.md`; lab run 3, lab run 4) |
+| Behaviour of the component in our pipelines | - | verified locally 2026-11-12 (evidence register; lab run 3, lab run 4) |
 
 ### 1c. Official CI templates / examples
 

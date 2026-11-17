@@ -5,7 +5,7 @@ a separate upload step does · plugin credentials are **HMAC**, never OAuth ·
 `fail_on_severity` takes English strings while the REST API takes integers ·
 fork PRs cannot write to the GitHub Security tab.
 
-Version tags are `[v: 2026-10-09 | git ls-remote]` unless marked. Tags rot —
+Version tags were read with `git ls-remote` on 2026-10-09 [INT-18~] unless marked. Tags rot —
 verify before pinning, or tell the user you are quoting a snapshot.
 
 ---
@@ -59,7 +59,7 @@ jobs:
         run: mvn -B package --file pom.xml
 
       - name: Veracode Pipeline Scan
-        uses: veracode/Veracode-pipeline-scan-action@v1.0.25   # [v: 2026-10-09]
+        uses: veracode/Veracode-pipeline-scan-action@v1.0.25   # [INT-19~]
         with:
           vid: ${{ secrets.VERACODE_API_KEY_ID }}      # HMAC id, NOT an OAuth client id
           vkey: ${{ secrets.VERACODE_API_KEY_SECRET }}
@@ -70,7 +70,7 @@ jobs:
 
       - name: Convert results to SARIF
         if: always()                                   # previous step failed on purpose
-        uses: veracode/veracode-pipeline-scan-results-to-sarif@v2.0.5   # [v: 2026-10-09]
+        uses: veracode/veracode-pipeline-scan-results-to-sarif@v2.0.5   # [INT-20~]
         with:
           scan-type: pipeline
           results-json: filtered_results.json
@@ -107,7 +107,7 @@ jobs:
 - **`if: always()`** on both post-scan steps, otherwise a failing gate skips
   publication.
 
-### Pipeline scan action inputs `[v: 2026-10-09 | action.yml at v1.0.25]`
+### Pipeline scan action inputs [INT-21~]
 
 `vid`, `vkey`, `file`, `token`, `fail_build`, `fail_build_error`,
 `fail_on_severity`, `fail_on_cwe`, `baseline_file`, `store_baseline_file`,
@@ -132,7 +132,7 @@ jobs:
       - name: Build
         run: mvn -B package --file pom.xml
       - name: Veracode Upload and Scan
-        uses: veracode/veracode-uploadandscan-action@0.2.11   # [v: 2026-10-09] tags are 0.x — there is no v1
+        uses: veracode/veracode-uploadandscan-action@0.2.11   # [INT-22~] tags are 0.x — there is no v1
         with:
           appname: 'My-Application'          # default: ${{ github.repository }}
           createprofile: true
@@ -145,7 +145,7 @@ jobs:
           # sandboxname / createsandbox: send it to a sandbox instead of the policy scan
 ```
 
-Inputs read from the action's `action.yml` at `0.2.11` `[v: 2026-10-09]`:
+Inputs read from the action's `action.yml` at `0.2.11` [INT-23~]:
 `appname`, `createprofile`, `filepath`, `version`, `vid`, `vkey` (required, some
 with defaults); `createsandbox`, `sandboxname`, `sandboxid`, `scantimeout`,
 `scanpollinginterval`, `deleteincompletescan`, `include`, `exclude`,
@@ -164,7 +164,7 @@ Wraps the Java API wrapper (HMAC only). Results land in the application profile
 and become queryable through everything in `findings-and-annotations.md` — this
 is the bridge between CI and reporting.
 
-## Other Veracode GitHub integrations `[v: 2026-09-15 | docs.veracode.com/r/c_about_github]`
+## Other Veracode GitHub integrations [INT-24~]
 
 - **Veracode Workflow App / GitHub Workflow Integration ("repository
   scanning")** — scans every repo in an org from one private `veracode` repo
@@ -173,7 +173,7 @@ is the bridge between CI and reporting.
   IaC/secrets; Fix for SCA pull requests. Results reach the Platform only with
   `analysis_on_platform: true` (default `false`). Also exists for Azure DevOps and
   GitLab; not for Bitbucket, GitHub Enterprise Server or the US Federal region
-  `[v: 2026-10-09 | docs.veracode.com/r/SCM_integrations]`. Setup is an
+  [INT-25~]. Setup is an
   onboarding task — the veracode-onboarding skill walks through it.
 - **Veracode Fix** — AI-generated patches from pipeline scan results, delivered
   as PRs.
@@ -183,7 +183,7 @@ is the bridge between CI and reporting.
 # Jenkins, GitLab CI, Azure DevOps
 
 Veracode publishes Pipeline Scan examples for **Azure DevOps, GitHub, GitLab and
-Jenkins** `[v: 2026-09-15 | docs.veracode.com/r/r_pipeline_scan_examples]`. The
+Jenkins** [INT-26~]. The
 per-platform snippets download and extract `pipeline-scan-LATEST.zip`, or run the
 `veracode/pipeline-scan` Docker image — which Veracode recommends for stability.
 

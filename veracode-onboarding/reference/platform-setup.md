@@ -16,7 +16,7 @@ assumes the one before it.
 | Create application profiles, upload and scan by hand | **Security Lead**, or another role with profile-creation and scan-submission rights, with team access to the app |
 | Agent-based SCA (workspaces, agents) | **Workspace Administrator** or **Workspace Editor**, plus **Security Lead** and **Submitter** |
 
-`[v: 2026-10-09 | docs.veracode.com]` — confirm role names against the customer's
+[ONB-07~] — confirm role names against the customer's
 platform if a step is refused; the fix is almost always a missing role, not a bug.
 
 ## 2. Teams and visibility
@@ -39,7 +39,7 @@ service account**, not a person. A person's keys stop working when they leave,
 and a human user **cannot be given API roles** (`400 "Cannot assign API roles to
 human user"`), so their keys authenticate and then fail on most calls with `403`.
 
-### Create one in the Platform `[v: 2026-10-09 | docs.veracode.com/r/t_create_users]`
+### Create one in the Platform [ONB-08~]
 
 1. Gear icon → **Admin** → **Users** tab → **Add New User**.
 2. Enter a name and an email address someone monitors (activation links and expiry
@@ -50,7 +50,7 @@ human user"`), so their keys authenticate and then fail on most calls with `403`
 5. **User Roles:** tick the API roles for its job (below).
 6. **Save**. An activation link is emailed, valid for seven days.
 
-### API roles by job `[v: 2026-10-09 | docs.veracode.com/r/c_API_roles_details]`
+### API roles by job [ONB-09~]
 
 | The account will… | Give it |
 |---|---|
@@ -77,7 +77,7 @@ rotate than one account with every role.
 When onboarding docs, plugins or integrations say "API ID and key", they mean
 **HMAC**.
 
-### Generate HMAC credentials in the Platform `[v: 2026-10-09 | docs.veracode.com/r/REST_APIs_Quickstart]`
+### Generate HMAC credentials in the Platform [ONB-10~]
 
 Signed in **as the account that will own them**: user account dropdown → **API
 Credentials** → **Generate API Credentials** → **HMAC credentials** → **Generate**.
@@ -89,7 +89,7 @@ Copy the ID and key straight into the secret store — the key is shown once.
   as it, through the Identity API (`POST /api/authn/v2/api_credentials/user_id/{id}`).
   That is scripting territory — the veracode-integration skill covers it.
 
-### Lifecycle — put these on a calendar `[v: 2026-10-09 | docs.veracode.com/r/HMAC_credentials]`
+### Lifecycle — put these on a calendar [ONB-11~]
 
 - **One active pair per user.** Generating a new pair revokes the old one **24
   hours later** — that is the window to update every place it is stored.
@@ -139,7 +139,7 @@ verdict — not necessarily one per repository.
   keep release scans out of the sandboxes branches use, or name release scans
   unmistakably.
 
-### Create one in the UI `[v: 2026-10-09 | docs.veracode.com/r/Static_Analysis_Quickstart]`
+### Create one in the UI [ONB-12~]
 
 **My Portfolio** → **Applications** → **Add New Application** → name, **Business
 Criticality** (the **Policy** follows), **Access** → **Edit** → add the team →

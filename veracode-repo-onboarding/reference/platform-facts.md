@@ -1,9 +1,10 @@
 # Veracode platform facts for onboarding
 
-Tags: **[live 2026-11-11]** observed on this rebuild (US commercial tenant, GitLab 19.5 CE,
-x86_64 docker runner); **[2026-10, not re-verified]** carried over from an earlier 2026-10 pack
-(arm64 runner); treat as likely but check before relying on it. Re-check anything
-older than six months.
+Rules only. How each one is known (date, source, what was observed) is in the evidence register,
+`evidence/` in the source repository, under the ID in brackets. No suffix: observed in the lab
+(GitLab 19.5 CE, x86_64 docker runner, US commercial tenant, 2026-11). `~`: read, not run. `?`: carried
+over from 2026-10 and not re-verified: check before relying on it. If today is more than six months
+after 2026-11, check a fact against docs.veracode.com before relying on it.
 
 This file is the index. Read only the topic file you need.
 

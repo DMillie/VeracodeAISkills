@@ -252,7 +252,7 @@ first run reaches back six months at most.
 ## 4. Compliance check — "are we passing?"
 
 The verdict is on the application object, so the whole portfolio is one
-paginated call `[v: 2026-09-18 | live]`:
+paginated call [INT-75]:
 
 ```python
 def portfolio_compliance(vc):
@@ -346,7 +346,7 @@ Raise unprompted, because they surface in week one:
 The request behind this recipe: *"for every application, the results of the most
 recent release scan"*, where release and branch scans share sandboxes. REST
 cannot answer it (SKILL.md invariant 5). The XML chain can, and this pattern ran
-live `[v: 2026-10-02 | live]`: it reached past a newer branch scan to the older
+live [INT-76]: it reached past a newer branch scan to the older
 release build, and chose the newest of two matching builds.
 
 Before the code, tell the user:

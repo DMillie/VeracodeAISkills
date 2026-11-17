@@ -88,7 +88,7 @@ starts returning 403 — different role.
 Other 403 signatures:
 
 - `"Account is not authorized to access the API"` on the Reporting API → the
-  account lacks `reportingApi` `[v: 2026-09-15 | live]`.
+  account lacks `reportingApi` [INT-86].
 - Authentication works but almost everything 403s → the credential belongs to a
   **human user**, who cannot hold API roles. Use an API service account.
 

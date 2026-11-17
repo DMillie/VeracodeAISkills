@@ -12,6 +12,6 @@
 | A detached PGP signature exists: `srcclr-3.8.125-linux.tgz.asc` (200). `.sha256` and `.sig` return 403. Which public key verifies it is **not confirmed**; the yum repo config in docs references `https://sca-downloads.veracode.com/redhat/SRCCLR-GPG-KEY`. | https://sca-downloads.veracode.com/srcclr-3.8.125-linux.tgz.asc ; https://docs.veracode.com/r/Set_up_SCA_agents | observed (2026-11-12) |
 | Package-manager installs (apt-get, yum with `gpgcheck=1`, Homebrew, PowerShell `ci.ps1`) are documented as alternatives. | https://docs.veracode.com/r/Set_up_SCA_agents | docs only (read 2026-11-12) |
 | Official SCA agent Docker image: none in the `veracode` Docker Hub namespace; none found in docs. | https://hub.docker.com/v2/repositories/veracode/ | not confirmed (none found) |
-| `gpg --verify` of the .asc against the vendor key; `SRCCLR_VERSION` pin behaviour | - | verified locally 2026-11-12: signature good (`reference/integration/verified-locally.md`); `SRCCLR_VERSION` not exercised (the component does not run ci.sh) |
+| `gpg --verify` of the .asc against the vendor key; `SRCCLR_VERSION` pin behaviour | - | verified locally 2026-11-12: signature good (`evidence/verified-locally-2026-11-12.md` in the source repository); `SRCCLR_VERSION` not exercised (the component does not run ci.sh) |
 
 Index and reading guide: `reference/integration-options.md`.

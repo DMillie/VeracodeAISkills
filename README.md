@@ -53,25 +53,30 @@ python3 tools/sync_shared.py check    # fails if a copy differs or a skill point
 Edit `shared/`, never the copies. `shared/` and `tools/` are not skills and are not
 installed.
 
-## Provenance
+## Evidence
 
-Facts in the reference files carry `[v: date | source]` tags. `live` means the
-behaviour was observed against a real Veracode tenant; anything else names the
-documentation, spec or library source it was read from. Items marked
-*unverified* are deliberately not asserted — the skills tell the model to check
-the named source instead of guessing. Re-verify anything older than about six
-months.
+Skill files hold rules and short evidence IDs such as `[PS-04]`. Dates, sources and
+observations are in [`evidence/`](evidence/README.md), outside the skills, so they
+can be audited without loading them into an assistant. `[ID~]` means read, not run;
+`[ID?]` means carried over and not re-verified. Check the two against each other with:
+
+```bash
+python3 tools/evidence.py check
+```
+
+## Tests
+
+```bash
+tests/static/run.sh
+```
+
+runs in seconds with no credentials: shared-file drift, evidence cross-check, skill
+front matter, dead paths, script syntax, the scripts' own unit tests, and the rules
+that must not disappear from the instructions (`tests/static/required-rules.tsv`).
+Agent-behaviour scenarios (skill routing, placement, packaging, a full onboarding)
+are described in [`tests/README.md`](tests/README.md); they need a lab.
 
 ## How the 2026-11 skills were tested
 
-In a lab: a self-managed GitLab CE 19.5 with one docker runner and a Veracode
-test tenant, eleven sample repositories with planted flaws and planted packaging
-traps, one run per repository. Agents given only these files placed scans
-correctly on 8 of 8 repositories and built an accepted package on 9 of 9
-statically supported ones (Java, Kotlin, Scala, C#, Python, Go, PHP, Rails,
-TypeScript). Facts in their reference files carry `[live <date>]` tags instead
-of the `[v: …]` form above.
-
-Not tested: GitHub, Azure DevOps, Bitbucket and gitlab.com pipelines; the GitLab
-Workflow Integration; merge-request-event pipelines; `block-policy` at the
-release point; Android. Component tag 1.3.0 does not parse; use 1.3.1.
+See [`evidence/lab-runs.md`](evidence/lab-runs.md). Component tag 1.3.0 does not
+parse; use 1.3.1.

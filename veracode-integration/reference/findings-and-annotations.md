@@ -9,7 +9,7 @@ or scan name.
 
 ---
 
-## Applications `[v: 2026-09-15 | docs.veracode.com/r/c_apps_intro]`
+## Applications [INT-27~]
 
 `GET /appsec/v1/applications?name={name}&page={n}&size={n}`
 
@@ -21,10 +21,10 @@ or scan name.
   `.profile.business_criticality`.
 - **The compliance verdict is already here:**
   `profile.policies[].policy_compliance_status` (e.g. `DID_NOT_PASS`) plus
-  `last_policy_compliance_check_date` `[v: 2026-09-18 | live]` — see
+  `last_policy_compliance_check_date` [INT-28] — see
   `policy-and-compliance.md`. A portfolio compliance view needs no per-app call.
 
-### Filters `[v: 2026-09-15 | live]`
+### Filters [INT-29]
 
 `page`, `size`, `org`, `name`, `policy_id`, `policy_guid`, `legacy_id`,
 `business_unit`, `tag`, `policy`, `policy_compliance`, `scan_status`,
@@ -46,7 +46,7 @@ Other documented operations (`GET /{guid}`, `POST`, `PUT`, `DELETE`) exist;
 request bodies for profile creation are **unverified** here — check the
 Applications spec.
 
-## Sandboxes `[v: 2026-09-15 | docs.veracode.com/r/c_sandbox_create_rest]`
+## Sandboxes [INT-30~]
 
 - `GET  /appsec/v1/applications/{application_guid}/sandboxes`
   → `_embedded.sandboxes[].guid`, `.name`
@@ -63,7 +63,7 @@ typo and wastes a lot of debugging.
 
 `GET /appsec/v2/applications/{application_guid}/findings`
 
-### Query parameters `[v: 2026-09-15 | docs.veracode.com/r/c_findings_v2_examples + Findings OpenAPI model]`
+### Query parameters [INT-31~]
 
 | Param | Type | Notes |
 |---|---|---|
@@ -83,7 +83,7 @@ typo and wastes a lot of debugging.
 | `sca_scan_mode` / `sca_dep_mode` | string | SCA; enum values **unverified** |
 | `page` / `size` | int | Standard pagination |
 
-### Envelope `[v: 2026-09-15 | Findings OpenAPI model]`
+### Envelope [INT-32~]
 
 ```jsonc
 {
@@ -95,17 +95,17 @@ typo and wastes a lot of debugging.
 
 This envelope shape (`_embedded.<collection>` + `page.*`) is consistent across
 `/appsec` collection endpoints. **When the collection is empty, `_embedded` is
-omitted entirely** — not an empty array `[v: 2026-09-15 | live]`:
+omitted entirely** — not an empty array [INT-33]:
 
 ```python
 items = body.get("_embedded", {}).get("findings", [])   # both levels, always
 ```
 
 The collection key is not always the resource name: `/appsec/v1/policies`
-returns `_embedded.policy_versions` `[v: 2026-09-15 | live]`. Print the first
+returns `_embedded.policy_versions` [INT-34]. Print the first
 response from any collection endpoint you have not used before.
 
-### Finding object `[v: 2026-09-15 | Findings OpenAPI model]`
+### Finding object [INT-35~]
 
 ```jsonc
 {
@@ -138,7 +138,7 @@ response from any collection endpoint you have not used before.
 
 **No top-level `severity`.** It is inside `finding_details`.
 
-### `finding_details` by scan type `[v: 2026-09-15 | Findings OpenAPI model]`
+### `finding_details` by scan type [INT-36~]
 
 **STATIC** — `severity` (**int 0–5**), `cwe.{id,name,href}`, `file_path`,
 `file_name`, `file_line_number`, `module`, `procedure`, `relative_location`,
@@ -158,7 +158,7 @@ at the Findings spec.
 - `GET /appsec/v2/applications/{guid}/findings/{issue_id}/dynamic_flaw_info`
   — request/response and attack vector
 
-`[v: 2026-09-15 | docs.veracode.com/r/c_rest_static_finding_data_path_intro]`
+[INT-37~]
 Exact response schemas **unverified**.
 
 ---
@@ -166,7 +166,7 @@ Exact response schemas **unverified**.
 ## Annotations
 
 `POST /appsec/v2/applications/{application_guid}/annotations`
-`[v: 2026-09-15 | docs.veracode.com/r/c_annotations_add_comment_rest, /r/c_annotations_propose_mitigation_rest, /r/c_annotations_approve_mitigation_rest]`
+[INT-38~]
 
 ```json
 { "issue_list": "1001,1002", "comment": "Ticket created: PROJ-123", "action": "COMMENT" }
@@ -248,8 +248,7 @@ accepts SCA `issue_id`s.
 - **No closed date and no "as of" parameter.** Per-finding `first_found_date` /
   `last_seen_date` exist, but you cannot reconstruct last month's portfolio state
   from a current-state API. Trend needs snapshots you keep, or the Reporting API.
-- **Several sandboxes, same artifact = identical finding sets** `[v: 2026-10-02 |
-  live]`. Summing per application double counts. Key on
+- **Several sandboxes, same artifact = identical finding sets** [INT-39]. Summing per application double counts. Key on
   `(application, context_guid, issue_id)`.
 
 ## Incremental sync

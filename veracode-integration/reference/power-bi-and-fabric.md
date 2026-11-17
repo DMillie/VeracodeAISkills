@@ -6,7 +6,7 @@ per-application URLs that refresh in Desktop **fail in the Power BI Service** ·
 the browser editor cannot create parameters · the verdict enum has underscores.
 
 Everything here was hit for real while building a Veracode → Power BI proof of
-concept on Power BI Pro, browser-only `[v: 2026-09-18 | live]` unless tagged
+concept on Power BI Pro, browser-only [INT-72] unless tagged
 otherwise.
 
 This file covers **where** the calls can run. For **what** to call, also read:
@@ -74,7 +74,7 @@ The errors on the way there, in the order they appear:
 
 ### The browser editor (Power BI Service, no Desktop)
 
-Desktop is Windows-only, so macOS users build in the browser `[v: 2026-09-15 | live]`:
+Desktop is Windows-only, so macOS users build in the browser [INT-73]:
 
 - **Cannot create parameters** (edit only). Use a `Config` query returning a
   record and reference its fields.
@@ -128,7 +128,7 @@ fnGetToken = () =>
 - Keep `app`, `sandbox`, `scan_name`, `build_id` on every finding row.
 - **Dedupe on the composite key** — `(app, sandbox, issue_id)` for SAST,
   `(app, sandbox, component, cve_id)` for SCA. Several sandboxes scanning the same
-  artifact produce identical sets `[v: 2026-10-02 | live]`; a "flaws per
+  artifact produce identical sets [INT-74]; a "flaws per
   application" measure that sums rows double-counts. Default the report to slicing
   by sandbox, or use an explicit `DISTINCTCOUNT` over the composite key.
 - For SCA, export `found_after_scan` so a CVE published after the release scan

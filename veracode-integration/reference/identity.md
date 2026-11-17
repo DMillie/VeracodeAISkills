@@ -1,7 +1,7 @@
 # Identity API — users, teams, roles, credentials
 
 Base path: `https://api.veracode.com/api/authn/v2`
-`[v: 2026-09-15 | docs.veracode.com/r/c_identity_intro]`
+[INT-56~]
 
 Note this shares the `/api/authn/v2` prefix with the OAuth token endpoint, and is
 **not** under `/appsec`.
@@ -45,13 +45,13 @@ elsewhere is authorization.
 | `DELETE` | `/api_credentials/{api_creds_id}` | Revoke |
 | `DELETE` | `/api_credentials/user_id/{user_id}` | Revoke a user's credentials |
 
-`POST /api_credentials/user_id/{user_id}` works live `[v: 2026-10-02 | live]`:
+`POST /api_credentials/user_id/{user_id}` works live [INT-57]:
 an administrator gets a new **HMAC** key pair for another user (typically an API
 service account) without logging in as them. The response carries `api_id`,
 `api_secret` and `expiration_ts` — the only time the secret is shown.
 
 **One active pair per user; generating is the rotation.**
-`[v: 2026-10-09 | docs.veracode.com/r/HMAC_credentials]` Generating a new pair
+[INT-58~] Generating a new pair
 schedules the previous one to stop working **24 hours** later. There is no `PUT`
 on credentials.
 
@@ -70,10 +70,10 @@ Suggest this when a user is building CI automation (`recipes.md` §5).
 (`GET /users/{user_id}`, `roles[].is_api`). Without them the new keys
 authenticate and every call returns `403`. API roles can only be assigned to API
 service accounts — a human user returns
-`400 "Cannot assign API roles to human user"` `[v: 2026-09-15 | live]`.
+`400 "Cannot assign API roles to human user"` [INT-59].
 
 ## OAuth client credentials
-`[v: 2026-10-02 | Identity API spec 1.5 (SwaggerHub Veracode/veracode-identity_api), docs.veracode.com/r/OAuth_Client_credentials]`
+[INT-60~]
 
 A separate credential from the HMAC API credentials above.
 
@@ -91,7 +91,7 @@ A separate credential from the HMAC API credentials above.
 
 **`POST` needs at least one role or permission**, even with `is_scoped: false`.
 Without one it returns `400 "At least one role or permission is required."`
-`[v: 2026-10-02 | live]`. Roles are sent as `[{"role_description": "Results API"}]`.
+[INT-61]. Roles are sent as `[{"role_description": "Results API"}]`.
 The safe source is the owner's own API roles from `GET /users/{user_id}`.
 `expiration_days` is a string, up to 365.
 
@@ -116,7 +116,7 @@ list's `_embedded` key, whether an admin can rotate or revoke another user's
 client by `clientId`, and which role a service account needs to create its own
 client.
 
-Access tokens: `expires_in` 3599 seen live `[v: 2026-09-15 | live]`; the spec
+Access tokens: `expires_in` 3599 seen live [INT-62]; the spec
 states 3600.
 
 ## Roles and permissions

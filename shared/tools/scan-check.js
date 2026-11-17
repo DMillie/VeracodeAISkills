@@ -1,5 +1,5 @@
 // Reads a Veracode Pipeline Scan results.json and flags the ways a wrong package scans green.
-// Every check comes from a case observed on 2026-11-12 (see VALIDATED.md). Zero dependencies.
+// Every check comes from a case observed on 2026-11-12 (see evidence/lab-runs.md in the source repository). Zero dependencies.
 'use strict';
 const SEV = { 5: 'Very High', 4: 'High', 3: 'Medium', 2: 'Low', 1: 'Very Low', 0: 'Informational' };
 const THIRD = /(^|\/)(node_modules|vendor|site-packages|dist-packages|\.venv|bower_components)\//i;

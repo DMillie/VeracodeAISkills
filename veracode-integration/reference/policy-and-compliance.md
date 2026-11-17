@@ -12,7 +12,7 @@ Pipeline Scan policy evaluation is local and does not update the profile.
 
 The most common AppSec question, and the Findings API does not answer it.
 
-### The verdict is on the application `[v: 2026-09-18 | live]`
+### The verdict is on the application [INT-67]
 
 `GET /appsec/v1/applications` already carries each application's verdict, so a
 portfolio compliance view is **one paginated call**, no per-application requests:
@@ -47,7 +47,7 @@ unit, criticality, team and policy; verdict freshness.
 ### Summary Report — detail, not the verdict
 
 `GET /appsec/v2/applications/{application_guid}/summary_report`
-`[v: 2026-09-15 | docs.veracode.com/r/c_sum_report_gen_rest]`
+[INT-68~]
 
 | Param | Notes |
 |---|---|
@@ -71,7 +71,7 @@ applications list, the offending flaws from Findings, and the grace-period clock
 
 ---
 
-## Policy API `[v: 2026-09-15 | docs.veracode.com/r/c_policy_rest_api, /r/Creating_a_Policy_with_the_REST_API]`
+## Policy API [INT-69~]
 
 Base path: `/appsec/v1/policies`
 
@@ -84,7 +84,7 @@ Base path: `/appsec/v1/policies`
 | `DELETE` | `/appsec/v1/policies/{guid}` | Delete |
 
 The list returns **`_embedded.policy_versions`**, not `_embedded.policies`
-`[v: 2026-09-15 | live]`. Reading the obvious key returns nothing, without error.
+[INT-70]. Reading the obvious key returns nothing, without error.
 
 Individual method paths beyond `POST` are inferred from convention and are
 **unverified** — confirm against
@@ -94,7 +94,7 @@ The API can also **evaluate** an application or sandbox against a policy,
 returning why it passes or fails, including scan-frequency requirements and flaws
 past their grace-period due date. The evaluation endpoint path is **unverified**.
 
-### Create body `[v: 2026-09-15 | docs.veracode.com/r/Creating_a_Policy_with_the_REST_API]`
+### Create body [INT-71~]
 
 ```jsonc
 {

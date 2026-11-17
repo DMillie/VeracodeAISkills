@@ -11,6 +11,6 @@
 | Versioned tarballs reachable (HTTP 200): 2.55.0, 2.54.0, 2.53.0, 2.52.0, 2.51.0, 2.50.0, 2.45.0. 2.40.0 and 2.35.0 return 404, so old versions are removed; a pin needs an internal mirror to stay reproducible. | https://tools.veracode.com/veracode-cli/veracode-cli_2.55.0_linux_x86.tar.gz | observed (2026-11-12) |
 | Other channels: Homebrew `veracode-cli@<version>` (at most four versions behind latest), Chocolatey `--version`, signed Windows MSI, PowerShell `install.ps1` taking a version argument. | https://docs.veracode.com/r/Install_a_specific_version_of_the_CLI | docs only (read 2026-11-12) |
 | No official Veracode CLI Docker image on Docker Hub (`veracode/veracode-cli` not found). | https://hub.docker.com/v2/repositories/veracode/ | observed (2026-11-12) |
-| Self-computed SHA-256 of the pinned tarball, recorded by us | - | verified locally 2026-11-12 (`reference/integration/verified-locally.md`) |
+| Self-computed SHA-256 of the pinned tarball, recorded by us | - | verified locally 2026-11-12 (`evidence/verified-locally-2026-11-12.md` in the source repository) |
 
 Index and reading guide: `reference/integration-options.md`.

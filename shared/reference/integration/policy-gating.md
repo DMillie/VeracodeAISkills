@@ -14,7 +14,7 @@ Source for the jar table: https://docs.veracode.com/r/Pipeline_Scan_parameters (
 | `--development_stage` / `-ds` | Exists. Case-sensitive: `Development`, `Testing`, `Release`. | docs only (read 2026-11-12) |
 | Output | `--json_output_file` (default `results.json`), `--filtered_json_output_file` (default `filtered_results.json`, must differ), `--summary_output`, `--issue_details`, `--gl_issue_generation`, `--gl_vulnerability_generation`. | docs only (read 2026-11-12) |
 | Other | `--timeout` (default and max 60 min), `--include`, `--project_name/_url/_ref`, `--emit_stack_dump`, `--veracode_profile`. | docs only (read 2026-11-12) |
-| Actual `--help` output of the pinned jar | - | verified locally 2026-11-12 (`reference/integration/verified-locally.md`) |
+| Actual `--help` output of the pinned jar | - | verified locally 2026-11-12 (`evidence/verified-locally-2026-11-12.md` in the source repository) |
 
 | Fact | Source | Marker |
 |---|---|---|

@@ -21,7 +21,7 @@ unless the team's build already produces the deployable (Java jar: reuse it).
 | **Rust and other languages absent from the supported lists** | nothing | | `static_scan: false`. A compiled binary is accepted and scans green with 0 findings: that is not a result. |
 | **Go** | module inside a top-level folder with `go mod vendor` output, zipped | | Go is analysed from source: release binaries and tarballs, a zip without `vendor/`, and a zip with the module files at the zip root all give "No files found for scanning". Two SILENT losses (scan green): a module pulled in through a `replace` directive (submodule, local path) is not analysed until the `replace` is removed and the vendored copy marked first-party; files behind build tags the team ships with (`-tags enterprise`) are skipped unless the tags are passed (`GOFLAGS=-tags=...` for `veracode package`). Read the Makefile for the real build flags. Upload and Scan of the auto-packaged zip passed pre-scan on 2026-11-12 (sandbox and policy), which supersedes the 2026-10 failure note. |
 | **C/C++** | x86_64 ELF built `-gdwarf-2 -g3 -O0 -fno-builtin`, unstripped, zipped | | 2026-10 note, not re-verified. |
-| **Containers** | the image in the docker daemon (`veracode scan --type image --source name:tag`) | | A `docker save` tarball read as an empty, clean image (2026-10). Build in the scan job with dind, or pull from the registry. |
+| **Containers** | the image in the docker daemon (`veracode scan --type image --source name:tag`) | | A `docker save` tarball read as an empty, clean image [PKG-01?]. Build in the scan job with dind, or pull from the registry. |
 
 ## The rule behind the table
 

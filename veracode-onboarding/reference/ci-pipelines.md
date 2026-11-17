@@ -2,7 +2,7 @@
 
 For customers not using repository scanning (Bitbucket, GitHub Enterprise Server,
 US Federal, Jenkins and other CI), or who want per-pipeline control. Action tags
-`[v: 2026-10-09 | git ls-remote]`; inputs read from each action's `action.yml`.
+[ONB-01~]; inputs read from each action's `action.yml`.
 
 ---
 
@@ -136,7 +136,7 @@ where the JAR's use underscores.
 
 Pipeline Scan accepts 6 submissions per minute per API user; more return HTTP 429.
 A handful of parallel pipelines on one service account reach that, so retry on 429
-or give busy groups their own service account `[v: 2026-11-12 | live]`.
+or give busy groups their own service account [ONB-02].
 
 Self-hosted runners need Veracode's IP ranges allowlisted. A timeout during
 upload that looks like a Veracode outage is usually the firewall.
