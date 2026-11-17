@@ -38,6 +38,21 @@ zip -r veracode-packaging-proof.skill veracode-packaging-proof
 zip -r veracode-gitlab-component.skill veracode-gitlab-component
 ```
 
+## Shared files
+
+The three 2026-11 skills use some of the same playbooks, reference files, templates
+and scripts. A skill is installed one folder at a time, so each carries its own
+copy. The source for those copies is `shared/`; `shared/manifest.txt` lists which
+skill gets which file.
+
+```bash
+python3 tools/sync_shared.py sync     # after editing anything under shared/
+python3 tools/sync_shared.py check    # fails if a copy differs or a skill points at a file it lacks
+```
+
+Edit `shared/`, never the copies. `shared/` and `tools/` are not skills and are not
+installed.
+
 ## Provenance
 
 Facts in the reference files carry `[v: date | source]` tags. `live` means the

@@ -1,0 +1,135 @@
+# Example: trunk-based development with release tags, Node.js/TypeScript service (matches samples/customer-portal).
+# Branching: short-lived fix/* or feature branches -> main (protected); releases are tags vX.Y.Z on main.
+# Existing pipeline: install (cache), lint, test, build (dist artifact), docker-image on tags.
+#
+# Placement (playbook/03, trunk + tags) as produced by the component inputs:
+#   short-lived branches : Pipeline Scan vs the main baseline, agent SCA, CLI directory scan
+#   main                 : baseline, agent SCA, CLI directory scan
+#   tags vX.Y.Z          : policy scan named "Release vX.Y.Z", container scan (the image is built on tags)
+# Packaging (playbook/04, JS/TS): zip of source + package.json + lockfile (+ tsconfig).
+
+image: node:18
+
+stages:
+  - install
+  - lint
+  - test
+  - build
+
+variables:
+  npm_config_cache: "$CI_PROJECT_DIR/.npm"
+
+default:
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+      - .npm/
+    policy: pull
+
+install:
+  stage: install
+  script:
+    - npm ci --no-audit --no-fund
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+      - .npm/
+    policy: pull-push
+
+lint:
+  stage: lint
+  script:
+    - '[ -d node_modules ] || npm ci --no-audit --no-fund'
+    - npm run lint
+
+test:
+  stage: test
+  variables:
+    JEST_JUNIT_OUTPUT_DIR: "reports"
+    JEST_JUNIT_OUTPUT_NAME: "junit.xml"
+  script:
+    - '[ -d node_modules ] || npm ci --no-audit --no-fund'
+    - npm test -- --ci --reporters=default --reporters=jest-junit
+  artifacts:
+    when: always
+    reports:
+      junit: reports/junit.xml
+    expire_in: 1 week
+
+build:
+  stage: build
+  script:
+    - '[ -d node_modules ] || npm ci --no-audit --no-fund'
+    - npm run build
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 1 week
+
+docker-image:
+  stage: build
+  image: docker:27
+  services:
+    - docker:27-dind
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: "/certs"
+    DOCKER_TLS_VERIFY: 1
+    DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
+  cache: []
+  needs: []
+  script:
+    - IMAGE="${CI_REGISTRY_IMAGE:-customer-portal}"
+    - docker build --pull -t "$IMAGE:$CI_COMMIT_TAG" -t "$IMAGE:latest" .
+    - |
+      if [ -n "$CI_REGISTRY" ]; then
+        echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+        docker push "$IMAGE:$CI_COMMIT_TAG"
+        docker push "$IMAGE:latest"
+      else
+        echo "No container registry configured; image built but not pushed"
+      fi
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v.*/'
+
+# ---------------------------------------------------------------------------------------------
+# Veracode security scanning (added by onboarding). Integration rung 2: the organisation's
+# shared component, pinned to a release and included by reference. To upgrade: change the
+# version after "@". To harden the gate: change rollout_stage (audit -> warn -> block-new ->
+# block-policy). Job definitions live in platform/veracode-ci, not in this repository.
+# ---------------------------------------------------------------------------------------------
+include:
+  - component: $CI_SERVER_FQDN/platform/veracode-ci/veracode@1.3.1
+    inputs:
+      app_name: customer-portal         # the agreed Veracode application profile (must exist)
+      rollout_stage: audit              # first onboarding; move to block-new once main has a baseline
+      sca_image: node:18
+      sca_before_script: ['[ -d node_modules ] || npm ci --no-audit --no-fund']
+      stage: test
+      release_branches: '^$'
+      release_tags: '^v'
+      container_branches: '^$'
+      container_tags: '^v'
+
+veracode-package:
+  stage: test
+  image: alpine:3.24.4
+  cache: []
+  needs: []
+  script:
+    - apk add --no-cache zip >/dev/null
+    - zip -qr veracode-package.zip src package.json package-lock.json tsconfig.json -x '*/node_modules/*' -x '*/__tests__/*'
+    - unzip -l veracode-package.zip | tail -1
+  artifacts:
+    expire_in: 1 day
+    paths:
+      - veracode-package.zip
+  rules:
+    - if: $CI_COMMIT_BRANCH
+    - if: '$CI_COMMIT_TAG =~ /^v/'

@@ -1,0 +1,31 @@
+# <skill> <path under shared/>   One line per copy. Edit files in shared/, then run:
+#   python3 tools/sync_shared.py sync
+veracode-repo-onboarding playbook/00-integration-ladder.md
+veracode-repo-onboarding playbook/04-packaging.md
+veracode-repo-onboarding reference/troubleshooting.md
+veracode-repo-onboarding reference/integration-options.md
+veracode-repo-onboarding reference/integration
+veracode-repo-onboarding reference/facts
+veracode-repo-onboarding templates/gitlab/component
+veracode-repo-onboarding templates/gitlab/examples
+veracode-repo-onboarding tools/detect_integration.py
+veracode-repo-onboarding tools/gitlab-ci-lint.sh
+veracode-repo-onboarding tools/pipeline_scan_summary.py
+veracode-repo-onboarding tools/scan-check.js
+veracode-packaging-proof playbook/04-packaging.md
+veracode-packaging-proof reference/troubleshooting.md
+veracode-packaging-proof reference/facts/pipeline-scan.md
+veracode-packaging-proof reference/facts/upload-and-scan.md
+veracode-packaging-proof reference/facts/veracode-cli.md
+veracode-packaging-proof tools/pipeline_scan_summary.py
+veracode-packaging-proof tools/scan-check.js
+veracode-gitlab-component playbook/00-integration-ladder.md
+veracode-gitlab-component reference/integration-options.md
+veracode-gitlab-component reference/integration
+veracode-gitlab-component reference/facts/integration-layout.md
+veracode-gitlab-component reference/facts/gitlab.md
+veracode-gitlab-component reference/facts/tools-and-images.md
+veracode-gitlab-component templates/gitlab/component
+veracode-gitlab-component templates/gitlab/examples
+veracode-gitlab-component tools/detect_integration.py
+veracode-gitlab-component tools/gitlab-ci-lint.sh

@@ -9,15 +9,20 @@ One component, `veracode`, lives in one central project (for example `platform/v
 is released with semantic version tags without a `v`. Repositories include it pinned to an exact
 tag and pass inputs. Nobody copies scan jobs into a repository.
 
-- `component/` is the project content: `templates/veracode/template.yml`, `README.md`,
+- `templates/gitlab/component/` is the project content: `templates/veracode/template.yml`, `README.md`,
   `CHANGELOG.md`, `tools/pin-versions.sh`. Current release: 1.3.1. Tag 1.3.0 does not parse; never
   pin it.
-- `examples/` holds three worked `.gitlab-ci.yml` files: GitHub flow (Python), git-flow (Java),
+- `templates/gitlab/examples/` holds three worked `.gitlab-ci.yml` files: GitHub flow (Python), git-flow (Java),
   trunk with tags (Node).
-- `00-integration-ladder.md` explains why a shared component comes before per-repo jobs, and the
+- `playbook/00-integration-ladder.md` explains why a shared component comes before per-repo jobs, and the
   rollout stages.
 
-Read `component/README.md` for the inputs, the jobs each input switches on, and the include forms.
+Read `templates/gitlab/component/README.md` for the inputs, the jobs each input switches on, and the include forms.
+
+Background, read only when needed: `reference/integration-options.md` indexes what Veracode ships
+for GitLab, policy-driven gating and version pinning; `reference/facts/gitlab.md`,
+`reference/facts/integration-layout.md` and `reference/facts/tools-and-images.md` hold dated
+observed behaviour.
 
 ## Using it in a repository
 
@@ -39,7 +44,7 @@ Read `component/README.md` for the inputs, the jobs each input switches on, and 
 2. Lint a consumer file that includes the component `@<branch>`. An unquoted colon in an input
    description is enough to break parsing, and a broken tag cannot be fixed, only superseded.
 3. Only then tag. Update `CHANGELOG.md` and bump the pins in the examples with
-   `component/tools/pin-versions.sh`.
+   `templates/gitlab/component/tools/pin-versions.sh`.
 4. Nothing floats: no `latest` image, no install script piped into a shell.
 
 ## Known limits

@@ -42,7 +42,15 @@ command gets past authentication.
 
 Veracode scans **built artifacts** for most languages, and wrong packaging is the
 quietest failure in the product: the scan succeeds and finds almost nothing. The
-CLI's auto-packager builds the right artifact for supported stacks.
+CLI's auto-packager is the quickest starting point for supported stacks. Treat its
+output as a candidate, not the answer: check what is in the archive, and when the
+result looks thin compare it with a second package (the veracode-packaging-proof
+skill has the method).
+
+Seen in lab testing `[v: 2026-11-12 | live]`: `veracode package` exited 0 with no
+artifact when the build failed (use `--strict`), included test and tool code,
+produced both the shaded and the original jar, ignored Go build tags, and for a
+Python Lambda its output found 3 of 15 planted flaws.
 
 ```bash
 # local project; --trust is required the first time
@@ -167,6 +175,8 @@ have both; make sure they know which results they are looking at.
 |---|---|
 | Scan finishes with almost no findings | Packaging: tests or `dist` included, no debug symbols, wrong module selected, lock files missing |
 | `veracode package` fails | The project does not build on that machine, or a build tool is missing from `PATH` |
+| `veracode package` exits 0 but there is no artifact, or a small one | The build failed inside the packager; without `--strict` that is not an error `[v: 2026-11-12 | live]` |
+| Scan says success, zero findings, on a language that is not supported (for example Rust) | Accepted is not analysed: the engine took the upload and had nothing to scan `[v: 2026-11-12 | live]` |
 | Python app has no SCA results | Only `requirements.txt`; add a lock file (`Pipfile.lock`) |
 | `veracode static scan` passed but the Platform shows nothing | Expected: it is a Pipeline Scan. Upload to a profile for Platform results |
 | Agent scan uploaded, application profile shows no SCA | Agent results live in the workspace until the project is linked to the profile |

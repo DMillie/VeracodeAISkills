@@ -11,7 +11,7 @@ packaging has two halves: choose the artifact, then prove it.
 
 ## 1. Choose the artifact
 
-Read the row for the stack in `reference/04-packaging.md`, then Veracode's own packaging page for
+Read the row for the stack in `playbook/04-packaging.md`, then Veracode's own packaging page for
 the language (`https://docs.veracode.com/r/compilation_<language>`), and quote it in your plan.
 
 The rule behind every row: the team's release artifact is built to run, not to be analysed. Expect
@@ -66,23 +66,14 @@ fails, includes tests and tools, emits both shaded and original jars, and ignore
 
 ## With the Veracode CLI local scan
 
-`veracode scan static <path>` (CLI v2.55.0) packages and scans a git checkout and keeps the
-results on the machine; `veracode findings static list <path> --json` exports them. Tested on
-one repository (the TypeScript pnpm workspace above), 2026-11-17:
+`veracode scan static <path>` packages and scans a checkout and keeps the results on the machine.
+Tested on one repository: it reported `SUCCESS` with 22 findings where 12 is correct, because it
+scans the workspace root and each package separately and the same findings come back under
+different paths. Group by artifact and remove repeats before quoting a count. Details and the
+other quirks are in `reference/facts/veracode-cli.md`. These scans prove a package; they do not
+appear in the Platform and do not replace pipeline scans.
 
-- It built four artifacts: one for the workspace root and one per package. The root artifact
-  found all 12 expected findings. The three per-package artifacts found 10 of the same 12 again
-  under shorter paths (`src/...` instead of `packages/api/src/...`) and missed the two that
-  cross packages.
-- The summary said `SUCCESS`, 22 findings. The real number is 12. Before reporting a count from
-  this command, group by artifact and remove findings that repeat under a different path prefix.
-- The packager warned that the npm build failed for two packages and still exited successfully.
-- The checkout needs a URL-style `origin` remote. With a local-path remote the scan stopped with
-  `invalid asset name format: unknown` after packaging.
-- These scans do not appear in the Veracode Platform, so they prove a package; they do not
-  replace the pipeline scans.
-
-The proof method is the same with this scanner: compare candidates and check where the findings
+The proof method is the same with any scanner: compare candidates and check where the findings
 land. Stop when one candidate is chosen and the counts for every candidate are written down. Do
 not fix findings from this skill.
 
@@ -91,5 +82,6 @@ not fix findings from this skill.
 For sandbox and policy scans, read the pre-scan module list back from the Platform and compare it
 with what the team ships. "Accepted upload" is not "completed scan". A policy verdict can be
 decided by library findings in the upload rather than static flaws: say which.
-`reference/troubleshooting.md` maps symptoms to causes; `reference/platform-facts.md` holds dated
+`reference/troubleshooting.md` maps symptoms to causes; `reference/facts/pipeline-scan.md`,
+`reference/facts/upload-and-scan.md` and `reference/facts/veracode-cli.md` hold dated
 observed behaviour.
