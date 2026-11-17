@@ -134,6 +134,10 @@ Or install the Veracode CLI in the job and run `veracode package` then
 `veracode static scan` — note the CLI's flags use hyphens (`--fail-on-severity`)
 where the JAR's use underscores.
 
+Pipeline Scan accepts 6 submissions per minute per API user; more return HTTP 429.
+A handful of parallel pipelines on one service account reach that, so retry on 429
+or give busy groups their own service account `[v: 2026-11-12 | live]`.
+
 Self-hosted runners need Veracode's IP ranges allowlisted. A timeout during
 upload that looks like a Veracode outage is usually the firewall.
 
@@ -167,6 +171,11 @@ with whichever scanned last. Keep release scans in the policy scan or a dedicate
 sandbox.
 
 ## 6. Turning the gate on without a revolt
+
+The severity lists in the examples above are a starting point, not the target. The
+target is a gate that follows the policy assigned to the application profile, so the
+pull request and the compliance verdict agree. The veracode-repo-onboarding skill
+does this with one `rollout_stage` setting: audit, warn, block-new, block-policy.
 
 1. Week 1: Pipeline Scan on PRs with `fail_build: false` — results visible,
    nothing blocked. Policy scan on main nightly.

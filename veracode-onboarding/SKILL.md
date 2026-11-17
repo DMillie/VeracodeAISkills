@@ -1,6 +1,6 @@
 ---
 name: veracode-onboarding
-description: Walks people through getting started with Veracode - first scans, repository scanning through the GitHub, GitLab or Azure DevOps workflow integrations, installing the Veracode CLI and packaging an application, adding Pipeline Scan and policy scans to CI, and platform setup (API service accounts, credentials, roles, teams, application profiles, policies). Also supports customer success managers running an onboarding - kickoff agendas, readiness questionnaires, onboarding plans, checklists, milestone tracking and status updates. Use it whenever someone is new to Veracode, setting it up for a team or organization, asking how to get their first results, or planning or running a customer onboarding, even if they don't say onboarding. For writing code against the Veracode APIs, veracode-integration is the better fit.
+description: Walks people through getting started with Veracode - first scans, repository scanning through the GitHub, GitLab or Azure DevOps workflow integrations, installing the Veracode CLI and packaging an application, adding Pipeline Scan and policy scans to CI, and platform setup (API service accounts, credentials, roles, teams, application profiles, policies). Also supports customer success managers running an onboarding - kickoff agendas, readiness questionnaires, onboarding plans, checklists, milestone tracking and status updates. Use it whenever someone is new to Veracode, setting it up for a team or organization, asking how to get their first results, or planning or running a customer onboarding, even if they don't say onboarding. For writing code against the Veracode APIs, veracode-integration is the better fit. For an agent making the CI change in one repository, veracode-repo-onboarding is the better fit; for a scan that came back with few or no findings, veracode-packaging-proof.
 metadata:
   kb_verified: "2026-10-09"
 ---
@@ -159,5 +159,14 @@ right place.
   BI, Jira sync, mitigation automation — are what the **veracode-integration**
   skill covers. Use it if it is available; otherwise say that is where onboarding
   ends and integration work begins.
+- When an agent is asked to **make the CI change in a repository** (find the branching
+  model, place the scans, open the merge request), the **veracode-repo-onboarding**
+  skill holds the tested step-by-step playbook. Use it if it is available.
+- When a scan **succeeds with few or no findings**, or someone asks whether the
+  package is right, use **veracode-packaging-proof** if it is available. Its method
+  in one line: build two or three candidate packages, scan each, and compare where
+  the findings land.
+- A platform team that wants **one shared GitLab pipeline definition** instead of
+  copied jobs: **veracode-gitlab-component**.
 - Licensing, contracts, pricing and support cases are for the customer's Veracode
   account team. Do not guess at them.
