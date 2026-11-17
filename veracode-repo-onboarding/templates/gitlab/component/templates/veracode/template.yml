@@ -1,0 +1,656 @@
+# Veracode CI/CD component for GitLab: one include, one place to bump versions.
+#
+#   include:
+#     - component: $CI_SERVER_FQDN/platform/veracode-ci/veracode@1.3.1
+#       inputs:
+#         app_name: my-application-profile
+#         sca_image: python:3.11
+#
+# Owned by the platform/security team, released with semantic version tags, included by
+# reference. Projects never copy this file (last resort only: see README "Include forms").
+# What a project still owns: a packaging job that publishes the artifact Veracode scans
+# (input `package_job`, default name veracode-package) and the inputs below.
+#
+# Rollout stage (input `rollout_stage`) is the single switch for how hard the gates are:
+#   audit        scans run and report; nothing ever blocks (problems show as warnings)
+#   warn         policy-violating flaws turn the job orange (allowed failure); nothing blocks
+#   block-new    merge requests fail on NEW policy-violating flaws compared with the baseline of
+#                the target branch; the release-point policy verdict is a warning
+#   block-policy any policy-violating flaw fails the job; the release-point job follows the
+#                policy scan verdict of the application profile
+# Gate criteria come from the Veracode policy assigned to the application profile (resolved at
+# run time with Veracode's API wrapper). `fail_on_severity` is an explicit override.
+#
+# Prerequisites (names only; a human sets the values): masked, unprotected CI variables
+# VERACODE_API_KEY_ID, VERACODE_API_KEY_SECRET (HMAC pair of an API service account) and
+# SRCCLR_API_TOKEN (CI-type SCA agent token). x86_64 docker runners; docker-in-docker for the
+# container scan. Exit code 42 is this component's "warning" (allowed failure).
+#
+# Several applications in one repository: include the component once per application with a
+# different `job_suffix` (e.g. '-console'), `app_name`, `package_job`, `artifact`, `source_dir`
+# and `changes_paths`. Every job name and the baseline package get the suffix.
+# Languages Veracode Static does not analyse: `static_scan: false` keeps SCA, the directory scan
+# and the container scan and drops every static job.
+spec:
+  inputs:
+    app_name:
+      description: Veracode application profile name (must exist; exact match). May stay empty only when static_scan is false.
+      default: ''
+    rollout_stage:
+      description: audit | warn | block-new | block-policy (see header).
+      default: audit
+      options: [audit, warn, block-new, block-policy]
+    sca_image:
+      description: Build image of the project for the agent-based SCA scan (needs the package manager, curl or wget, tar).
+      default: python:3.11
+    artifact:
+      description: Packaged artifact to scan (glob allowed, first match wins).
+      default: veracode-package.zip
+    package_job:
+      description: Name of the project's job that publishes `artifact`.
+      default: veracode-package
+    stage:
+      description: Existing pipeline stage the Veracode jobs run in (same as or later than the packaging job's stage).
+      default: test
+    release_stage:
+      description: Stage of the policy and sandbox scans, which can wait many minutes for the Platform. Default '.post' (GitLab's built-in last stage) so the project's own later stages never wait for them.
+      default: '.post'
+    baseline_branches:
+      description: Regex of long-lived branches merge requests target. They publish the baseline; every other branch gets the gated Pipeline Scan.
+      default: '^main$'
+    baseline_map:
+      description: 'Which baseline a branch is compared with: comma-separated glob=branch pairs, first match wins, e.g. "hotfix/*=main,*=develop". Empty = merge request target, else the default branch.'
+      default: ''
+    release_branches:
+      description: Regex of branches that are the release point (policy scan). Use '^$' for none.
+      default: '^main$'
+    release_tags:
+      description: Regex of tags that are the release point (policy scan named "Release <tag>"). '^$' = none.
+      default: '^$'
+    sandbox_branches:
+      description: Regex of long-lived non-release branches scanned into a sandbox named after the branch. '^$' = none.
+      default: '^$'
+    container_branches:
+      description: Regex of branches whose pipeline builds and scans the container image (only if `dockerfile` exists).
+      default: '.*'
+    container_tags:
+      description: Regex of tags whose pipeline builds and scans the container image.
+      default: '^$'
+    dockerfile:
+      description: Dockerfile path; the container scan is skipped when it does not exist.
+      default: Dockerfile
+    docker_context:
+      default: '.'
+    static_scan:
+      description: Run the static jobs (policy-resolve, pipeline-scan, baseline, policy-scan, sandbox-scan). false = SCA, directory scan and container scan only (language without Veracode Static support).
+      type: boolean
+      default: true
+    job_suffix:
+      description: "Appended to every job name and to the baseline package name. Set it (e.g. '-console') when the component is included more than once in a pipeline, once per application."
+      default: ''
+    source_dir:
+      description: Directory of the application inside the repository (SCA agent and directory scan run there).
+      default: '.'
+    changes_paths:
+      description: Branch pipelines run the Veracode jobs only when files matching these globs changed (monorepo). Tag pipelines ignore it.
+      type: array
+      default: ['**/*']
+    gate_skip_branches:
+      description: Regex of branches that get neither the gated Pipeline Scan nor a baseline (deploy/environment branches that only receive merges). '^$' = none.
+      default: '^$'
+    sandbox_tags:
+      description: Regex of tags scanned into the sandbox `sandbox_tag_name` (pre-release tags). Keep it disjoint from `release_tags`. '^$' = none.
+      default: '^$'
+    sandbox_tag_name:
+      description: Sandbox that receives the scans of `sandbox_tags`.
+      default: prerelease
+    container_needs:
+      description: "Jobs whose artifacts the container scan job downloads before `docker build` (a Dockerfile that copies build output), e.g. [{job: build, artifacts: true}]. They must run on the same refs."
+      type: array
+      default: []
+    container_image:
+      description: Scan this image reference (pulled, after `docker login` to $CI_REGISTRY when set) instead of building from the Dockerfile. CI variables are expanded at run time.
+      default: ''
+    sca_agent:
+      description: Run the agent-based SCA scan on branch pipelines.
+      type: boolean
+      default: true
+    sca_before_script:
+      description: Commands run before the SCA agent (e.g. ["npm ci --no-audit --no-fund"]).
+      type: array
+      default: []
+    sca_scan_args:
+      default: '--allow-dirty'
+    cli_directory_scan:
+      description: Run the Veracode CLI directory scan (SCA on manifests with the HMAC credentials, no agent token) on branch pipelines.
+      type: boolean
+      default: true
+    policy_name:
+      description: Override - evaluate Pipeline Scans against this Veracode policy instead of the one assigned to the application profile.
+      default: ''
+    fail_on_severity:
+      description: 'Override - ignore the policy and gate on these severities, e.g. "Very High, High". Leave empty to follow the policy.'
+      default: ''
+    policy_scan_timeout:
+      description: Minutes the release-point job waits for the policy scan verdict (0 = submit and return; then the verdict is NOT read).
+      default: '60'
+    sandbox_scan_timeout:
+      default: '0'
+    pipeline_scan_timeout:
+      default: '60'
+    # ---- pinned versions: the one place to bump them (tools/pin-versions.sh prints new values) ----
+    pipeline_scan_image:
+      default: 'veracode/pipeline-scan:26.11.0@sha256:bde005b807ceb2f6f0439f5f0fa79a5fdcb0284abc9cf8d0919a3fafffce9a6b'
+    api_wrapper_image:
+      default: 'veracode/api-wrapper-java:26.10.20.1@sha256:cfdb8ea641a0b5b160afc3920d1995deeb722fb902b5c5e79cf6a711cc56ca11'
+    cli_version:
+      default: '2.55.0'
+    cli_sha256:
+      description: SHA-256 of veracode-cli_<cli_version>_linux_x86.tar.gz (Veracode publishes none; recorded by the component owner).
+      default: '44fde332acc9401f51486404dba3289cff894cf32aafda612e0a8f1cbc1b2140'
+    cli_download_url:
+      description: Base URL of the CLI tarballs (point at an internal mirror; Veracode removes old versions).
+      default: 'https://tools.veracode.com/veracode-cli'
+    sca_agent_version:
+      default: '3.8.125'
+    sca_agent_sha256_glibc:
+      description: SHA-256 of srcclr-<version>-linux.tgz (PGP signature checked by the component owner at bump time).
+      default: 'cff739125b4464adb827169a86d670efd4e52257db9eb05339a74a118d53d6fa'
+    sca_agent_sha256_musl:
+      description: SHA-256 of srcclr-<version>-linux_musl_x64.tgz.
+      default: '8d413d9c5f5bae75803fcccd9a565999f4f6c59f215d03f79ed0b7df49008355'
+    sca_agent_download_url:
+      default: 'https://sca-downloads.veracode.com'
+    cli_image:
+      default: 'alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf'
+    docker_image:
+      default: 'docker:27.5.1@sha256:aa3df78ecf320f5fafdce71c659f1629e96e9de0968305fe1de670e0ca9176ce'
+    dind_image:
+      default: 'docker:27.5.1-dind@sha256:aa3df78ecf320f5fafdce71c659f1629e96e9de0968305fe1de670e0ca9176ce'
+---
+# Rules note: an unset variable compares as an empty string, so `$CI_COMMIT_TAG =~ /^$/` is TRUE on
+# every branch pipeline. Every regex rule below is therefore guarded with `$VAR &&`, which makes
+# '^$' the safe "never" value for the *_branches / *_tags inputs.
+# Hidden building blocks ------------------------------------------------------------------------
+".veracode-common$[[ inputs.job_suffix ]]":
+  stage: $[[ inputs.stage ]]
+  cache: []
+  variables:
+    VERACODE_COMPONENT_VERSION: "1.3.1"
+    VERACODE_ROLLOUT_STAGE: "$[[ inputs.rollout_stage ]]"
+    VERACODE_APP_NAME: "$[[ inputs.app_name ]]"
+    VERACODE_ARTIFACT: "$[[ inputs.artifact ]]"
+
+.veracode-install-cli: &veracode-install-cli |
+  # Veracode CLI, pinned: downloaded by version and checked against the SHA-256 recorded in the
+  # component (Veracode publishes no checksum). Installed outside the scanned tree.
+  set -eu
+  T="veracode-cli_${VERACODE_CLI_VERSION}_linux_x86"
+  mkdir -p /usr/local/veracode-cli && cd /usr/local/veracode-cli
+  if command -v curl >/dev/null 2>&1; then curl -fsSL -o cli.tgz "$VERACODE_CLI_DOWNLOAD_URL/$T.tar.gz"; else wget -q -O cli.tgz "$VERACODE_CLI_DOWNLOAD_URL/$T.tar.gz"; fi
+  echo "$VERACODE_CLI_SHA256  cli.tgz" | sha256sum -c - || { echo "ERROR: Veracode CLI $VERACODE_CLI_VERSION checksum mismatch (expected $VERACODE_CLI_SHA256). Not executed."; exit 1; }
+  tar xzf cli.tgz && mv "$T/veracode" ./veracode && rm -f cli.tgz
+  cd "$CI_PROJECT_DIR"
+  export PATH="/usr/local/veracode-cli:$PATH"
+  echo "Veracode CLI $VERACODE_CLI_VERSION installed (sha256 verified)"
+
+# Policy the gate uses = the policy assigned to the application profile, read with Veracode's
+# API wrapper (GetAppList -> GetAppInfo). Writes its name to veracode-policy.txt.
+"veracode-policy-resolve$[[ inputs.job_suffix ]]":
+  extends: ".veracode-common$[[ inputs.job_suffix ]]"
+  image:
+    name: $[[ inputs.api_wrapper_image ]]
+    docker:
+      user: root                     # image user is uid 1000; reused root-owned build volumes are not writable for it
+  needs: []
+  allow_failure:
+    exit_codes: [42]
+  variables:
+    VERACODE_POLICY_NAME: "$[[ inputs.policy_name ]]"
+    VERACODE_FAIL_ON_SEVERITY: "$[[ inputs.fail_on_severity ]]"
+  script:
+    - |
+      set -u
+      echo "Veracode component $VERACODE_COMPONENT_VERSION, rollout stage: $VERACODE_ROLLOUT_STAGE"
+      : > veracode-policy.txt
+      if [ -n "$VERACODE_FAIL_ON_SEVERITY" ]; then echo "Gate criteria: OVERRIDE fail_on_severity='$VERACODE_FAIL_ON_SEVERITY' (the policy is not consulted)."; exit 0; fi
+      if [ -n "$VERACODE_POLICY_NAME" ]; then printf '%s\n' "$VERACODE_POLICY_NAME" > veracode-policy.txt; echo "Gate criteria: OVERRIDE policy_name='$VERACODE_POLICY_NAME'."; exit 0; fi
+      warn() { echo "WARNING: $1"; case "$VERACODE_ROLLOUT_STAGE" in block-new|block-policy) exit 1;; *) exit 42;; esac; }
+      unesc() { sed 's/&lt;/</g; s/&gt;/>/g; s/&quot;/"/g; s/&amp;/\&/g'; }
+      java -jar /opt/veracode/api-wrapper.jar -vid "$VERACODE_API_KEY_ID" -vkey "$VERACODE_API_KEY_SECRET" -action GetAppList > applist.xml 2> wrapper.err \
+        || { tail -3 wrapper.err; warn "could not list applications (credentials or role problem)."; }
+      APP_ID="$(tr '>' '\n' < applist.xml | unesc | grep -F "app_name=\"$VERACODE_APP_NAME\"" | sed -n 's/.*app_id="\([0-9]*\)".*/\1/p' | head -1)"
+      [ -n "$VERACODE_APP_NAME" ] || warn "input app_name is empty; it is required unless static_scan is false."
+      [ -n "$APP_ID" ] || warn "application profile '$VERACODE_APP_NAME' not found (exact name). Create it first; this component never creates profiles."
+      java -jar /opt/veracode/api-wrapper.jar -vid "$VERACODE_API_KEY_ID" -vkey "$VERACODE_API_KEY_SECRET" -action GetAppInfo -appid "$APP_ID" > appinfo.xml 2>> wrapper.err \
+        || { tail -3 wrapper.err; warn "could not read application $APP_ID."; }
+      POLICY="$(tr '\n' ' ' < appinfo.xml | sed -n 's/.*<application [^>]* policy="\([^"]*\)".*/\1/p' | unesc)"
+      [ -n "$POLICY" ] || warn "application '$VERACODE_APP_NAME' ($APP_ID) has no policy attribute."
+      printf '%s\n' "$POLICY" > veracode-policy.txt
+      echo "Gate criteria: policy '$POLICY' assigned to application profile '$VERACODE_APP_NAME' (app id $APP_ID)."
+  artifacts:
+    when: always
+    expire_in: 1 day
+    paths: [veracode-policy.txt]
+  rules:
+    - if: '$CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH =~ /$[[ inputs.gate_skip_branches ]]/'
+      when: never
+    - if: '"$[[ inputs.static_scan ]]" == "true" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH !~ /$[[ inputs.baseline_branches ]]/'
+      changes: $[[ inputs.changes_paths ]]
+
+# Pipeline Scan gate on short-lived branches. Criteria: policy (or override). Baseline: the
+# target branch's, published by veracode-baseline. Outcome by rollout stage (header).
+# pipeline-scan.jar exit codes: 0 none, 1..200 = number of flaws matching the criteria, else error.
+"veracode-pipeline-scan$[[ inputs.job_suffix ]]":
+  extends: ".veracode-common$[[ inputs.job_suffix ]]"
+  image:
+    name: $[[ inputs.pipeline_scan_image ]]
+    docker:
+      user: root
+  needs:
+    - job: $[[ inputs.package_job ]]
+      optional: true
+    - job: "veracode-policy-resolve$[[ inputs.job_suffix ]]"
+  allow_failure:
+    exit_codes: [42]
+  variables:
+    VERACODE_FAIL_ON_SEVERITY: "$[[ inputs.fail_on_severity ]]"
+    VERACODE_BASELINE_MAP: "$[[ inputs.baseline_map ]]"
+    VERACODE_BASELINE_PACKAGE: "veracode-baseline$[[ inputs.job_suffix ]]"
+    VERACODE_BASELINE_JOB: "veracode-baseline$[[ inputs.job_suffix ]]"
+    VERACODE_PIPELINE_TIMEOUT: "$[[ inputs.pipeline_scan_timeout ]]"
+  script:
+    - |
+      set -u
+      STAGE="$VERACODE_ROLLOUT_STAGE"
+      echo "Veracode component $VERACODE_COMPONENT_VERSION, rollout stage: $STAGE"
+      soft() { case "$STAGE" in block-new|block-policy) echo "ERROR: $1"; exit 1;; *) echo "WARNING: $1 (rollout stage $STAGE: not blocking)"; exit 42;; esac; }
+      set -- $VERACODE_ARTIFACT; ARTIFACT="$1"
+      test -f "$ARTIFACT" || soft "artifact '$VERACODE_ARTIFACT' not found. The packaging job must publish it and run on this ref."
+      JAR=/opt/veracode/pipeline-scan.jar
+      # ---- criteria ----
+      CRIT_KIND=none; CRIT=""; POLICY="$(cat veracode-policy.txt 2>/dev/null || true)"
+      if [ -n "$VERACODE_FAIL_ON_SEVERITY" ]; then
+        CRIT_KIND=severity; CRIT="$VERACODE_FAIL_ON_SEVERITY"; echo "Criteria: OVERRIDE severities '$CRIT'"
+      elif [ -n "$POLICY" ]; then
+        # custom policies are downloaded and applied as a file; built-in ones cannot be downloaded and are applied by name
+        mkdir -p .veracode-policy
+        ( cd .veracode-policy && java -jar "$JAR" --veracode_api_id "$VERACODE_API_KEY_ID" --veracode_api_key "$VERACODE_API_KEY_SECRET" --request_policy "$POLICY" > request.log 2>&1 ) || true
+        PFILE="$(ls .veracode-policy/*.json 2>/dev/null | head -1 || true)"
+        if [ -n "$PFILE" ]; then CRIT_KIND=policy_file; CRIT="$PFILE"; echo "Criteria: policy '$POLICY' (custom, downloaded to $PFILE)"
+        elif grep -qi "builtin" .veracode-policy/request.log; then CRIT_KIND=policy_name; CRIT="$POLICY"; echo "Criteria: policy '$POLICY' (built-in, applied by name)"
+        else tail -3 .veracode-policy/request.log; soft "policy '$POLICY' could neither be downloaded nor recognised as built-in."; fi
+      else
+        soft "no policy resolved (see job veracode-policy-resolve) and no fail_on_severity override."
+      fi
+      # ---- baseline ----
+      BASELINE=no
+      if [ "$STAGE" = block-policy ]; then
+        echo "Baseline: not used (block-policy fails on any flaw violating the criteria)."
+      else
+        REF="${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-$CI_DEFAULT_BRANCH}"
+        OLDIFS="$IFS"; IFS=','
+        for pair in $VERACODE_BASELINE_MAP; do
+          pat="${pair%%=*}"; tgt="${pair#*=}"
+          case "$CI_COMMIT_REF_NAME" in $pat) REF="$tgt"; break;; esac
+        done
+        IFS="$OLDIFS"
+        SLUG="$(echo "$REF" | tr 'A-Z' 'a-z' | sed 's/[^a-z0-9]/-/g; s/^-*//; s/-*$//' | cut -c1-63)"
+        PKG_URL="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/$VERACODE_BASELINE_PACKAGE/$SLUG/baseline.json"
+        ART_URL="$CI_API_V4_URL/projects/$CI_PROJECT_ID/jobs/artifacts/$REF/raw/baseline.json?job=$VERACODE_BASELINE_JOB"
+        C1=$(curl -s --header "JOB-TOKEN: $CI_JOB_TOKEN" -o baseline.json -w '%{http_code}' "$PKG_URL" || echo "curl-error")
+        if [ "$C1" = 200 ]; then BASELINE=yes; echo "Baseline: package $VERACODE_BASELINE_PACKAGE/$SLUG ($(wc -c < baseline.json) bytes, branch '$REF')."
+        else
+          C2=$(curl -s --header "JOB-TOKEN: $CI_JOB_TOKEN" -o baseline.json -w '%{http_code}' "$ART_URL" || echo "curl-error")
+          if [ "$C2" = 200 ]; then BASELINE=yes; echo "Baseline: artifact of job '$VERACODE_BASELINE_JOB' on '$REF' ($(wc -c < baseline.json) bytes)."
+          else rm -f baseline.json; echo "Baseline: none for '$REF' (package: HTTP $C1, artifact: HTTP $C2; 404 = not published yet, 000/curl-error = $CI_API_V4_URL unreachable from the job)."; fi
+        fi
+      fi
+      # ---- scan ----
+      set -- --file "$ARTIFACT" --project_name "$CI_PROJECT_PATH" --project_url "$CI_PROJECT_URL" --project_ref "$CI_COMMIT_REF_NAME" \
+             --json_output_file results.json --filtered_json_output_file filtered_results.json \
+             --summary_output true --summary_output_file results.txt --gl_vulnerability_generation true \
+             --timeout "$VERACODE_PIPELINE_TIMEOUT"
+      case "$CRIT_KIND" in
+        severity)    set -- "$@" --fail_on_severity "$CRIT";;
+        policy_file) set -- "$@" --policy_file "$CRIT";;
+        policy_name) set -- "$@" --policy_name "$CRIT";;
+      esac
+      [ "$BASELINE" = yes ] && set -- "$@" --baseline_file baseline.json
+      # The Pipeline Scan API allows 6 scan submissions per minute per API user (HTTP 429): wait and retry.
+      try=1
+      while :; do
+        set +e
+        { java -jar "$JAR" --veracode_api_id "$VERACODE_API_KEY_ID" --veracode_api_key "$VERACODE_API_KEY_SECRET" "$@"; echo $? > .veracode-rc; } 2>&1 | tee .veracode-scan.log
+        rc="$(cat .veracode-rc)"
+        set -e
+        if grep -q "HTTP Response 429" .veracode-scan.log && [ "$try" -lt 6 ]; then
+          echo "Pipeline Scan submission rate-limited (HTTP 429), attempt $try: waiting $((try * 20)) s"; rm -f results.json; sleep $((try * 20)); try=$((try + 1)); continue
+        fi
+        break
+      done
+      if [ ! -f results.json ] || [ "$rc" -gt 200 ]; then soft "pipeline-scan.jar did not complete (exit $rc)."; fi
+      WHAT="flaws violating the criteria"; [ "$BASELINE" = yes ] && WHAT="NEW flaws violating the criteria (not in the baseline)"
+      echo "VERACODE GATE: stage=$STAGE criteria=$CRIT_KIND baseline=$BASELINE matching=$rc"
+      if [ "$rc" -eq 0 ]; then echo "PASSED: 0 $WHAT."; exit 0; fi
+      case "$STAGE" in
+        audit)        echo "AUDIT: $rc $WHAT. Not enforced in rollout stage 'audit'. See results.txt / filtered_results.json."; exit 0;;
+        warn)         echo "WARNING: $rc $WHAT. Rollout stage 'warn': allowed failure."; exit 42;;
+        block-new)    if [ "$BASELINE" = yes ]; then echo "FAILED: $rc $WHAT. Rollout stage 'block-new'."; exit 1
+                      else echo "WARNING: $rc $WHAT, but no baseline exists yet, so new cannot be told from existing. Not blocking until the target branch has published one."; exit 42; fi;;
+        block-policy) echo "FAILED: $rc $WHAT. Rollout stage 'block-policy'."; exit 1;;
+        *)            echo "ERROR: unknown rollout stage '$STAGE'"; exit 1;;
+      esac
+  artifacts:
+    when: always
+    expire_in: 1 month
+    paths:
+      - results.json
+      - filtered_results.json
+      - results.txt
+      - veracode_gitlab_vulnerabilities.json
+    reports:
+      sast: veracode_gitlab_vulnerabilities.json
+  rules:
+    - if: '$CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH =~ /$[[ inputs.gate_skip_branches ]]/'
+      when: never
+    - if: '"$[[ inputs.static_scan ]]" == "true" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH !~ /$[[ inputs.baseline_branches ]]/'
+      changes: $[[ inputs.changes_paths ]]
+
+# Baseline: unfiltered Pipeline Scan of a long-lived branch, published as generic package
+# veracode-baseline/<branch slug>/baseline.json (job token). Never gates.
+"veracode-baseline$[[ inputs.job_suffix ]]":
+  extends: ".veracode-common$[[ inputs.job_suffix ]]"
+  image:
+    name: $[[ inputs.pipeline_scan_image ]]
+    docker:
+      user: root
+  needs:
+    - job: $[[ inputs.package_job ]]
+      optional: true
+  allow_failure: true
+  variables:
+    VERACODE_BASELINE_PACKAGE: "veracode-baseline$[[ inputs.job_suffix ]]"
+    VERACODE_PIPELINE_TIMEOUT: "$[[ inputs.pipeline_scan_timeout ]]"
+  script:
+    - |
+      set -u
+      echo "Veracode component $VERACODE_COMPONENT_VERSION, rollout stage: $VERACODE_ROLLOUT_STAGE"
+      set -- $VERACODE_ARTIFACT; ARTIFACT="$1"
+      test -f "$ARTIFACT" || { echo "ERROR: artifact '$VERACODE_ARTIFACT' not found."; exit 1; }
+      try=1
+      while :; do
+        set +e
+        { java -jar /opt/veracode/pipeline-scan.jar \
+          --veracode_api_id "$VERACODE_API_KEY_ID" --veracode_api_key "$VERACODE_API_KEY_SECRET" \
+          --file "$ARTIFACT" \
+          --project_name "$CI_PROJECT_PATH" --project_url "$CI_PROJECT_URL" --project_ref "$CI_COMMIT_REF_NAME" \
+          --json_output_file baseline.json --summary_output true --summary_output_file baseline.txt \
+          --timeout "$VERACODE_PIPELINE_TIMEOUT"; echo $? > .veracode-rc; } 2>&1 | tee .veracode-scan.log
+        rc="$(cat .veracode-rc)"
+        set -e
+        if grep -q "HTTP Response 429" .veracode-scan.log && [ "$try" -lt 6 ]; then
+          echo "Pipeline Scan submission rate-limited (HTTP 429), attempt $try: waiting $((try * 20)) s"; rm -f baseline.json; sleep $((try * 20)); try=$((try + 1)); continue
+        fi
+        break
+      done
+      test -f baseline.json || { echo "ERROR: no baseline.json produced (exit $rc)"; exit 1; }
+      echo "Baseline produced (jar exit $rc = flaw count, not a failure here)."
+      PKG_URL="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/$VERACODE_BASELINE_PACKAGE/$CI_COMMIT_REF_SLUG/baseline.json"
+      CODE=$(curl -s --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file baseline.json -o /dev/null -w '%{http_code}' "$PKG_URL" || echo "curl-error")
+      if [ "$CODE" = 201 ] || [ "$CODE" = 200 ]; then
+        echo "Baseline published: package $VERACODE_BASELINE_PACKAGE/$CI_COMMIT_REF_SLUG (HTTP $CODE)"
+      else
+        echo "WARNING: could not publish the baseline package: HTTP $CODE from $PKG_URL (403 = package registry disabled or job token not allowed, 000/curl-error = API URL unreachable from the job)."
+        exit 1
+      fi
+  artifacts:
+    when: always
+    expire_in: 1 month
+    paths: [baseline.json, baseline.txt]
+  rules:
+    - if: '$CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH =~ /$[[ inputs.gate_skip_branches ]]/'
+      when: never
+    - if: '"$[[ inputs.static_scan ]]" == "true" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH =~ /$[[ inputs.baseline_branches ]]/'
+      changes: $[[ inputs.changes_paths ]]
+
+# Policy scan (Upload and Scan without a sandbox) at the release point: sets the application's
+# official verdict. API wrapper exit codes: 0 = done/passed, 4 = scan completed and the application
+# did not pass policy, else error. Never creates profiles.
+"veracode-policy-scan$[[ inputs.job_suffix ]]":
+  extends: ".veracode-common$[[ inputs.job_suffix ]]"
+  stage: $[[ inputs.release_stage ]]
+  image:
+    name: $[[ inputs.api_wrapper_image ]]
+    docker:
+      user: root
+  needs:
+    - job: $[[ inputs.package_job ]]
+      optional: true
+  allow_failure:
+    exit_codes: [42]
+  variables:
+    VERACODE_SCAN_TIMEOUT: "$[[ inputs.policy_scan_timeout ]]"
+  script:
+    - |
+      set -u
+      STAGE="$VERACODE_ROLLOUT_STAGE"
+      echo "Veracode component $VERACODE_COMPONENT_VERSION, rollout stage: $STAGE"
+      soft() { case "$STAGE" in block-new|block-policy) echo "ERROR: $1"; exit 1;; *) echo "WARNING: $1 (rollout stage $STAGE: not blocking)"; exit 42;; esac; }
+      set -- $VERACODE_ARTIFACT; ARTIFACT="$1"
+      test -f "$ARTIFACT" || soft "artifact '$VERACODE_ARTIFACT' not found."
+      if [ -n "${CI_COMMIT_TAG:-}" ]; then SCAN_NAME="Release $CI_COMMIT_TAG"; else SCAN_NAME="$CI_COMMIT_REF_NAME $CI_COMMIT_SHORT_SHA"; fi
+      WAIT=""; [ "${VERACODE_SCAN_TIMEOUT:-0}" != "0" ] && WAIT="-scantimeout $VERACODE_SCAN_TIMEOUT"
+      echo "Policy scan of '$ARTIFACT' -> application '$VERACODE_APP_NAME', scan name '$SCAN_NAME'"
+      set +e
+      { java -jar /opt/veracode/api-wrapper.jar -action UploadAndScan \
+        -vid "$VERACODE_API_KEY_ID" -vkey "$VERACODE_API_KEY_SECRET" \
+        -appname "$VERACODE_APP_NAME" -createprofile false \
+        -filepath "$ARTIFACT" -version "$SCAN_NAME" \
+        -autoscan true -deleteincompletescan 1 $WAIT; echo $? > .veracode-rc; } 2>&1 | tee .veracode-upload.log
+      rc="$(cat .veracode-rc)"
+      set -e
+      # Pre-scan read-back: which modules the Platform selected and what it complained about. A scan
+      # that "worked" on the wrong package shows here (missing modules, "no scannable files").
+      APPID="$(sed -n 's/.*(appid=\([0-9]*\)).*/\1/p' .veracode-upload.log | head -1)"
+      BUILDID="$(sed -n 's/.*analysis id of the new analysis is "\([0-9]*\)".*/\1/p' .veracode-upload.log | head -1)"
+      if [ -n "$WAIT" ] && [ -n "$APPID" ] && [ -n "$BUILDID" ]; then
+        java -jar /opt/veracode/api-wrapper.jar -vid "$VERACODE_API_KEY_ID" -vkey "$VERACODE_API_KEY_SECRET" -action GetPreScanResults -appid "$APPID" -buildid "$BUILDID" > veracode-prescan.xml 2>/dev/null || true
+        echo "VERACODE PRE-SCAN (app $APPID, build $BUILDID):"
+        tr '>' '\n' < veracode-prescan.xml | sed -n 's/.*<module .*name="\([^"]*\)".*status="\([^"]*\)".*/  module: \1 | \2/p; s/.*<issue .*details="\([^"]*\)".*/    issue: \1/p' | head -60
+        grep -q "<module " veracode-prescan.xml 2>/dev/null || echo "  (no module list returned; read it on the Platform)"
+      else
+        echo "VERACODE PRE-SCAN: not read (app ${APPID:-?}, build ${BUILDID:-?}, waited=${WAIT:+yes})."
+      fi
+      echo "VERACODE RELEASE GATE: stage=$STAGE wrapper_exit=$rc waited=${WAIT:+yes}"
+      if [ "$rc" -eq 0 ]; then
+        if [ -n "$WAIT" ]; then echo "PASSED: policy scan '$SCAN_NAME' completed and the application passes policy."; else echo "SUBMITTED: policy scan '$SCAN_NAME' uploaded; verdict not read (timeout 0)."; fi
+        exit 0
+      fi
+      [ "$rc" -eq 4 ] || soft "Upload and Scan did not complete (wrapper exit $rc)."
+      case "$STAGE" in
+        audit)          echo "AUDIT: application '$VERACODE_APP_NAME' did NOT pass policy on scan '$SCAN_NAME'. Not enforced in rollout stage 'audit'."; exit 0;;
+        warn|block-new) echo "WARNING: application '$VERACODE_APP_NAME' did NOT pass policy on scan '$SCAN_NAME'. Rollout stage '$STAGE': the release point is not blocked yet."; exit 42;;
+        block-policy)   echo "FAILED: application '$VERACODE_APP_NAME' did NOT pass policy on scan '$SCAN_NAME'. Rollout stage 'block-policy'."; exit 1;;
+        *)              echo "ERROR: unknown rollout stage '$STAGE'"; exit 1;;
+      esac
+  rules:
+    - if: '"$[[ inputs.static_scan ]]" == "true" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH =~ /$[[ inputs.release_branches ]]/'
+      changes: $[[ inputs.changes_paths ]]
+    - if: '"$[[ inputs.static_scan ]]" == "true" && $CI_COMMIT_TAG && $CI_COMMIT_TAG =~ /$[[ inputs.release_tags ]]/'
+
+# Sandbox scan: history on the Platform for long-lived non-release branches, without touching
+# the compliance verdict. One sandbox per branch (name = branch slug); tags matching `sandbox_tags`
+# share the sandbox `sandbox_tag_name`. Informational.
+"veracode-sandbox-scan$[[ inputs.job_suffix ]]":
+  extends: ".veracode-common$[[ inputs.job_suffix ]]"
+  stage: $[[ inputs.release_stage ]]
+  image:
+    name: $[[ inputs.api_wrapper_image ]]
+    docker:
+      user: root
+  needs:
+    - job: $[[ inputs.package_job ]]
+      optional: true
+  allow_failure: true
+  variables:
+    VERACODE_SCAN_TIMEOUT: "$[[ inputs.sandbox_scan_timeout ]]"
+    VERACODE_SANDBOX_TAG_NAME: "$[[ inputs.sandbox_tag_name ]]"
+  script:
+    - |
+      set -u
+      echo "Veracode component $VERACODE_COMPONENT_VERSION, rollout stage: $VERACODE_ROLLOUT_STAGE"
+      set -- $VERACODE_ARTIFACT; ARTIFACT="$1"
+      test -f "$ARTIFACT" || { echo "ERROR: artifact '$VERACODE_ARTIFACT' not found."; exit 1; }
+      WAIT=""; [ "${VERACODE_SCAN_TIMEOUT:-0}" != "0" ] && WAIT="-scantimeout $VERACODE_SCAN_TIMEOUT"
+      if [ -n "${CI_COMMIT_TAG:-}" ]; then SANDBOX="$VERACODE_SANDBOX_TAG_NAME"; SCAN_NAME="$CI_COMMIT_TAG"; else SANDBOX="$CI_COMMIT_REF_SLUG"; SCAN_NAME="$CI_COMMIT_REF_NAME $CI_COMMIT_SHORT_SHA"; fi
+      echo "Sandbox scan of '$ARTIFACT' -> application '$VERACODE_APP_NAME', sandbox '$SANDBOX', scan name '$SCAN_NAME'"
+      set +e
+      { java -jar /opt/veracode/api-wrapper.jar -action UploadAndScan \
+        -vid "$VERACODE_API_KEY_ID" -vkey "$VERACODE_API_KEY_SECRET" \
+        -appname "$VERACODE_APP_NAME" -createprofile false \
+        -sandboxname "$SANDBOX" -createsandbox true \
+        -filepath "$ARTIFACT" -version "$SCAN_NAME" \
+        -autoscan true -deleteincompletescan 1 $WAIT; echo $? > .veracode-rc; } 2>&1 | tee .veracode-upload.log
+      rc="$(cat .veracode-rc)"
+      set -e
+      # Pre-scan read-back: which modules the Platform selected and what it complained about. A scan
+      # that "worked" on the wrong package shows here (missing modules, "no scannable files").
+      APPID="$(sed -n 's/.*(appid=\([0-9]*\)).*/\1/p' .veracode-upload.log | head -1)"
+      BUILDID="$(sed -n 's/.*analysis id of the new analysis is "\([0-9]*\)".*/\1/p' .veracode-upload.log | head -1)"
+      if [ -n "$WAIT" ] && [ -n "$APPID" ] && [ -n "$BUILDID" ]; then
+        java -jar /opt/veracode/api-wrapper.jar -vid "$VERACODE_API_KEY_ID" -vkey "$VERACODE_API_KEY_SECRET" -action GetPreScanResults -appid "$APPID" -buildid "$BUILDID" > veracode-prescan.xml 2>/dev/null || true
+        echo "VERACODE PRE-SCAN (app $APPID, build $BUILDID):"
+        tr '>' '\n' < veracode-prescan.xml | sed -n 's/.*<module .*name="\([^"]*\)".*status="\([^"]*\)".*/  module: \1 | \2/p; s/.*<issue .*details="\([^"]*\)".*/    issue: \1/p' | head -60
+        grep -q "<module " veracode-prescan.xml 2>/dev/null || echo "  (no module list returned; read it on the Platform)"
+      else
+        echo "VERACODE PRE-SCAN: not read (app ${APPID:-?}, build ${BUILDID:-?}, waited=${WAIT:+yes})."
+      fi
+      exit "$rc"
+  rules:
+    - if: '"$[[ inputs.static_scan ]]" == "true" && $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH =~ /$[[ inputs.sandbox_branches ]]/'
+      changes: $[[ inputs.changes_paths ]]
+    - if: '"$[[ inputs.static_scan ]]" == "true" && $CI_COMMIT_TAG && $CI_COMMIT_TAG =~ /$[[ inputs.sandbox_tags ]]/'
+
+# Agent-based SCA (transitive dependencies; results in the SCA workspace). The agent archive is
+# downloaded by version and checked against the recorded SHA-256; no remote script is executed.
+"veracode-sca$[[ inputs.job_suffix ]]":
+  extends: ".veracode-common$[[ inputs.job_suffix ]]"
+  image: $[[ inputs.sca_image ]]
+  needs: []
+  allow_failure: true
+  variables:
+    SRCCLR_SCAN_ARGS: "$[[ inputs.sca_scan_args ]]"
+    SRCCLR_SCM_URI: "$CI_PROJECT_URL"
+    SRCCLR_SCM_REF: "$CI_COMMIT_REF_NAME"
+    SRCCLR_SCM_REF_TYPE: "branch"
+    VERACODE_SCA_AGENT_VERSION: "$[[ inputs.sca_agent_version ]]"
+    VERACODE_SCA_SHA256_GLIBC: "$[[ inputs.sca_agent_sha256_glibc ]]"
+    VERACODE_SCA_SHA256_MUSL: "$[[ inputs.sca_agent_sha256_musl ]]"
+    VERACODE_SCA_DOWNLOAD_URL: "$[[ inputs.sca_agent_download_url ]]"
+    VERACODE_SOURCE_DIR: "$[[ inputs.source_dir ]]"
+  before_script: $[[ inputs.sca_before_script ]]
+  script:
+    - |
+      set -u
+      echo "Veracode component $VERACODE_COMPONENT_VERSION, rollout stage: $VERACODE_ROLLOUT_STAGE"
+      test -n "${SRCCLR_API_TOKEN:-}" || { echo "ERROR: SRCCLR_API_TOKEN is not set. It must be a CI-type SCA agent token on the group/project, masked, unprotected."; exit 1; }
+      [ "$(uname -m)" = x86_64 ] || { echo "ERROR: the SCA agent supports x86_64 only (this is $(uname -m))."; exit 1; }
+      if grep -q alpine /etc/os-release 2>/dev/null; then OS=linux_musl_x64; SUM="$VERACODE_SCA_SHA256_MUSL"; else OS=linux; SUM="$VERACODE_SCA_SHA256_GLIBC"; fi
+      TGZ="/tmp/srcclr-${VERACODE_SCA_AGENT_VERSION}-${OS}.tgz"; URL="$VERACODE_SCA_DOWNLOAD_URL/srcclr-${VERACODE_SCA_AGENT_VERSION}-${OS}.tgz"
+      mkdir -p /tmp/veracode-sca
+      if command -v curl >/dev/null 2>&1; then curl -fsSL -o "$TGZ" "$URL"; else wget -q -O "$TGZ" "$URL"; fi
+      echo "$SUM  $TGZ" | sha256sum -c - || { echo "ERROR: SCA agent archive checksum mismatch (expected $SUM). Not executed."; exit 1; }
+      tar xzf "$TGZ" -C /tmp/veracode-sca --strip-components=1
+      echo "SCA agent $VERACODE_SCA_AGENT_VERSION ($OS) installed (sha256 verified)"
+      OUT="$CI_PROJECT_DIR/veracode-sca.txt"
+      cd "$CI_PROJECT_DIR/$VERACODE_SOURCE_DIR"
+      set +e
+      /tmp/veracode-sca/bin/srcclr scan $SRCCLR_SCAN_ARGS > "$OUT" 2>&1
+      rc=$?
+      set -e
+      cd "$CI_PROJECT_DIR"
+      cat veracode-sca.txt
+      echo "--- SCA summary (agent exit $rc) ---"
+      grep -E "Total Librar|Direct Librar|Transitive Librar|Vulnerable Librar|Vulnerabilities|Unique Library Licenses|Scan ID|Full Report Details" veracode-sca.txt || true
+      exit "$rc"
+  artifacts:
+    when: always
+    expire_in: 1 month
+    paths: [veracode-sca.txt]
+  rules:
+    - if: '"$[[ inputs.sca_agent ]]" == "true" && $CI_COMMIT_BRANCH'
+      changes: $[[ inputs.changes_paths ]]
+
+# Veracode CLI directory scan: SCA on manifests/lockfiles with the HMAC credentials (no agent
+# token; direct dependencies), plus secrets and misconfiguration checks. Informational.
+"veracode-cli-directory-scan$[[ inputs.job_suffix ]]":
+  extends: ".veracode-common$[[ inputs.job_suffix ]]"
+  image: $[[ inputs.cli_image ]]
+  needs: []
+  allow_failure: true
+  variables:
+    VERACODE_CLI_VERSION: "$[[ inputs.cli_version ]]"
+    VERACODE_CLI_SHA256: "$[[ inputs.cli_sha256 ]]"
+    VERACODE_CLI_DOWNLOAD_URL: "$[[ inputs.cli_download_url ]]"
+    VERACODE_SOURCE_DIR: "$[[ inputs.source_dir ]]"
+  script:
+    - echo "Veracode component $VERACODE_COMPONENT_VERSION, rollout stage $VERACODE_ROLLOUT_STAGE"
+    - *veracode-install-cli
+    - veracode scan --type directory --source "$VERACODE_SOURCE_DIR" --format table --output veracode-directory-scan.txt
+    - cat veracode-directory-scan.txt
+  artifacts:
+    when: always
+    expire_in: 1 month
+    paths: [veracode-directory-scan.txt]
+  rules:
+    - if: '"$[[ inputs.cli_directory_scan ]]" == "true" && $CI_COMMIT_BRANCH'
+      changes: $[[ inputs.changes_paths ]]
+
+# Container scan: build the image from the Dockerfile in docker-in-docker (after downloading the
+# artifacts of `container_needs`), or pull `container_image`, and scan it from the daemon with the
+# pinned Veracode CLI. Informational.
+"veracode-container-scan$[[ inputs.job_suffix ]]":
+  extends: ".veracode-common$[[ inputs.job_suffix ]]"
+  image: $[[ inputs.docker_image ]]
+  services:
+    - name: $[[ inputs.dind_image ]]
+      alias: docker
+  needs: $[[ inputs.container_needs ]]
+  allow_failure: true
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: "/certs"
+    DOCKER_TLS_VERIFY: 1
+    DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
+    VERACODE_DOCKERFILE: "$[[ inputs.dockerfile ]]"
+    VERACODE_DOCKER_CONTEXT: "$[[ inputs.docker_context ]]"
+    VERACODE_CONTAINER_IMAGE: "$[[ inputs.container_image ]]"
+    VERACODE_CLI_VERSION: "$[[ inputs.cli_version ]]"
+    VERACODE_CLI_SHA256: "$[[ inputs.cli_sha256 ]]"
+    VERACODE_CLI_DOWNLOAD_URL: "$[[ inputs.cli_download_url ]]"
+  script:
+    - echo "Veracode component $VERACODE_COMPONENT_VERSION, rollout stage $VERACODE_ROLLOUT_STAGE"
+    - *veracode-install-cli
+    - |
+      set -u
+      if [ -n "$VERACODE_CONTAINER_IMAGE" ]; then
+        IMAGE="$VERACODE_CONTAINER_IMAGE"
+        if [ -n "${CI_REGISTRY:-}" ]; then echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"; fi
+        docker pull "$IMAGE"
+      else
+        IMAGE="$CI_PROJECT_NAME:$CI_COMMIT_SHORT_SHA"
+        docker build -t "$IMAGE" -f "$VERACODE_DOCKERFILE" "$VERACODE_DOCKER_CONTEXT"
+      fi
+      veracode scan --type image --source "$IMAGE" --format table --output veracode-container-scan.txt
+      cat veracode-container-scan.txt
+  artifacts:
+    when: always
+    expire_in: 1 month
+    paths: [veracode-container-scan.txt]
+  rules:
+    - if: '$CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH =~ /$[[ inputs.container_branches ]]/'
+      exists: ['$[[ inputs.dockerfile ]]']
+      changes: $[[ inputs.changes_paths ]]
+    - if: '$CI_COMMIT_TAG && $CI_COMMIT_TAG =~ /$[[ inputs.container_tags ]]/'
+      exists: ['$[[ inputs.dockerfile ]]']

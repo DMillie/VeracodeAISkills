@@ -1,0 +1,104 @@
+# Example: GitHub flow, Python/Flask service (matches samples/storefront-api).
+# Branching: short-lived feature branches -> merge request -> main (protected). main is the release point.
+# Existing pipeline: lint, test, build (docker image on main). The Veracode part is additive: the
+# original jobs are untouched; everything below the marker was added (one include + the packaging job).
+#
+# Placement (playbook/03, GitHub flow) as produced by the component inputs:
+#   feature branches / MRs : policy-resolve + Pipeline Scan (policy of the application profile, baseline of main),
+#                            agent SCA, CLI directory scan, container scan
+#   main                   : baseline, policy scan (compliance verdict), agent SCA, CLI directory scan, container scan
+# Packaging (playbook/04, Python): zip of the application package + entry point + requirements.
+
+stages:
+  - lint
+  - test
+  - build
+
+default:
+  image: python:3.11-slim
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+.pip-cache: &pip-cache
+  cache:
+    key: pip-$CI_COMMIT_REF_SLUG
+    paths:
+      - .cache/pip
+
+lint:
+  stage: lint
+  <<: *pip-cache
+  script:
+    - pip install flake8==7.1.1
+    - flake8
+
+test:
+  stage: test
+  <<: *pip-cache
+  script:
+    - pip install -r requirements.txt -r requirements-dev.txt
+    - pytest --cov=app --cov-report=term --cov-report=xml:coverage.xml --junitxml=report.xml
+  coverage: '/^TOTAL.+?(\d+\%)$/'
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+      - coverage.xml
+    reports:
+      junit: report.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+
+build:
+  stage: build
+  image: docker:27
+  services:
+    - docker:27-dind
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: "/certs"
+    DOCKER_TLS_VERIFY: 1
+    DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
+  script:
+    - IMAGE="${CI_REGISTRY_IMAGE:-storefront-api}"
+    - docker build -t "$IMAGE:$CI_COMMIT_SHORT_SHA" -t "$IMAGE:latest" .
+    - |
+      if [ -n "$CI_REGISTRY" ]; then
+        echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+        docker push "$IMAGE:$CI_COMMIT_SHORT_SHA"
+        docker push "$IMAGE:latest"
+      else
+        echo "No container registry configured; image built but not pushed"
+      fi
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# ---------------------------------------------------------------------------------------------
+# Veracode security scanning (added by onboarding). Integration rung 2: the organisation's
+# shared component, pinned to a release and included by reference. To upgrade: change the
+# version after "@". To harden the gate: change rollout_stage (audit -> warn -> block-new ->
+# block-policy). Job definitions live in platform/veracode-ci, not in this repository.
+# ---------------------------------------------------------------------------------------------
+include:
+  - component: $CI_SERVER_FQDN/platform/veracode-ci/veracode@1.3.1
+    inputs:
+      app_name: storefront-api          # the agreed Veracode application profile (must exist)
+      rollout_stage: audit              # first onboarding; move to block-new once main has a baseline
+      sca_image: python:3.11
+      stage: test
+
+veracode-package:
+  stage: test
+  image: python:3.11-slim
+  needs: []
+  script:
+    - python -m zipfile -c veracode-package.zip app wsgi.py requirements.txt
+    - python -m zipfile -l veracode-package.zip
+  artifacts:
+    expire_in: 1 day
+    paths:
+      - veracode-package.zip
+  rules:
+    - if: $CI_COMMIT_BRANCH
