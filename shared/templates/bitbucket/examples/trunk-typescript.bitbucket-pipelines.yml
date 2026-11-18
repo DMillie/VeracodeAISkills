@@ -1,0 +1,128 @@
+# Example: trunk-based, TypeScript pnpm workspace (matches samples/parcel-tracker).
+# STATUS: DRAFT. The scan and report scripts were run locally in the pinned images; this file
+# has NOT run on Bitbucket. Unverified there: image references by tag@digest, the non-root user
+# of the Veracode images against Bitbucket's clone directory, the Code Insights proxy call.
+#
+# Branching: short-lived branches -> pull request -> main. main is the release point.
+# Placement:
+#   pull requests : package + Pipeline Scan + Code Insights report (audit: nothing blocks)
+#   main          : package + Pipeline Scan + report, then a policy scan that is SUBMITTED, not
+#                   waited for (a waiting step burns build minutes; reference/facts/bitbucket.md)
+# No `default:` or feature-branch `branches:` entry is added, so a pull request never starts two
+# pipelines. Integration rung 3: pinned Veracode images called from the pipeline, because there is
+# no vendor pipe for Bitbucket. Lines marked "team" were there before onboarding.
+#
+# Prerequisites (names only; a workspace admin sets the values as SECURED workspace variables):
+#   VERACODE_API_KEY_ID, VERACODE_API_KEY_SECRET (HMAC pair of an API service account)
+# Repository variable: VERACODE_APP_NAME (the agreed application profile; it must exist).
+
+image: atlassian/default-image:4                        # team
+
+definitions:
+  steps:
+    - step: &build-image                                # team
+        name: Build and smoke test image
+        services: [docker]
+        script:
+          - docker build -t parcel-tracker:$BITBUCKET_COMMIT .
+
+    # ------------------------------------------------------------------------------------------
+    # Veracode security scanning (added by onboarding). To upgrade, change the image tags and
+    # digests below. To harden the gate later, change VERACODE_ROLLOUT_STAGE (audit is the only
+    # stage this draft implements).
+    # ------------------------------------------------------------------------------------------
+    - step: &veracode-package
+        name: Veracode package
+        image: alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
+        script:
+          # What Veracode analyses for TypeScript is the original source, not the bundle the image
+          # ships. One zip with the source of all workspace packages. Left out on purpose: tests,
+          # vendored minified files, pnpm-workspace.yaml and vite.config.ts (a zip of the whole
+          # tree scanned "successfully" with 0 findings instead of 12).
+          - |
+            set -eu
+            apk add --no-cache zip >/dev/null
+            zip -qr veracode-package.zip package.json packages/shared/package.json packages/api/package.json packages/web/package.json packages/shared/src packages/api/src packages/web/src
+            unzip -l veracode-package.zip | tail -1
+        artifacts:
+          - veracode-package.zip
+
+    - step: &veracode-pipeline-scan
+        name: Veracode Pipeline Scan (audit)
+        image: veracode/pipeline-scan:26.11.0@sha256:bde005b807ceb2f6f0439f5f0fa79a5fdcb0284abc9cf8d0919a3fafffce9a6b
+        script:
+          # pipeline-scan.jar exit codes: 0 none, 1..200 = number of findings, above = error.
+          # Audit: findings never fail the step. A scan that did not complete, or that analysed
+          # nothing, does: a green step must mean "scanned", not "ran".
+          - |
+            set -u
+            : "${VERACODE_API_KEY_ID:?secured workspace variable VERACODE_API_KEY_ID is not set}"
+            : "${VERACODE_API_KEY_SECRET:?secured workspace variable VERACODE_API_KEY_SECRET is not set}"
+            [ -s veracode-package.zip ] || { echo "veracode-package.zip missing: the packaging step did not publish it"; exit 1; }
+            rc=0
+            java -jar /opt/veracode/pipeline-scan.jar -vid "$VERACODE_API_KEY_ID" -vkey "$VERACODE_API_KEY_SECRET" \
+              --file veracode-package.zip \
+              --project_name "${BITBUCKET_REPO_FULL_NAME:-local}" --project_ref "${BITBUCKET_BRANCH:-${BITBUCKET_TAG:-local}}" \
+              --json_output_file results.json --summary_output true --summary_output_file veracode-summary.txt > veracode-scan.log 2>&1 || rc=$?
+            tail -25 veracode-scan.log
+            if [ ! -s results.json ] || [ "$rc" -gt 200 ]; then echo "Pipeline Scan did not complete (exit $rc)"; exit 1; fi
+            grep -Eq '"scan_status" *: *"SUCCESS"' results.json || { echo "Pipeline Scan status is not SUCCESS"; exit 1; }
+            grep -Eq '"modules_count" *: *[1-9]' results.json || { echo "Pipeline Scan reported no modules: nothing was analysed, fix the package"; exit 1; }
+            [ "$rc" -gt 0 ] || echo "WARNING: SUCCESS with 0 findings. Treat as a packaging problem until a with/without comparison says otherwise."
+            echo "Pipeline Scan completed: $rc finding(s). Rollout stage audit: reported, not blocking."
+        artifacts:
+          - results.json
+          - veracode-summary.txt
+          - veracode-scan.log
+
+    - step: &veracode-report
+        name: Veracode report in Bitbucket (Code Insights)
+        image: alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
+        script:
+          # Shows the result on the commit and the pull request. Never fails the pipeline.
+          - |
+            set -u
+            apk add --no-cache curl jq >/dev/null
+            jq '{title: "Veracode Pipeline Scan", reporter: "Veracode", report_type: "SECURITY",
+                 details: ("Static analysis of the packaged source. " + (.findings | length | tostring) + " finding(s). Audit stage: nothing blocks."),
+                 data: [ {title: "Findings", type: "NUMBER", value: (.findings | length)},
+                         {title: "High or Very High", type: "NUMBER", value: ([.findings[] | select(.severity >= 4)] | length)},
+                         {title: "Medium", type: "NUMBER", value: ([.findings[] | select(.severity == 3)] | length)} ]}' results.json > veracode-report.json
+            jq '[ .findings[:100][] | {external_id: ("veracode-" + (.issue_id | tostring)), annotation_type: "VULNERABILITY",
+                   path: .files.source_file.file, line: .files.source_file.line,
+                   summary: ("CWE-" + (.cwe_id | tostring) + " " + .issue_type),
+                   severity: (if .severity >= 5 then "CRITICAL" elif .severity == 4 then "HIGH" elif .severity == 3 then "MEDIUM" else "LOW" end)} ]' results.json > veracode-annotations.json
+            [ -n "${BITBUCKET_COMMIT:-}" ] || { echo "Not on Bitbucket: report files written, nothing sent"; exit 0; }
+            base="http://api.bitbucket.org/2.0/repositories/$BITBUCKET_REPO_FULL_NAME/commit/$BITBUCKET_COMMIT/reports/veracode-pipeline-scan"
+            curl -sS --proxy http://localhost:29418 -X PUT -H 'Content-Type: application/json' -d @veracode-report.json "$base" -o report-response.json -w 'report: HTTP %{http_code}\n' || echo "Code Insights report not sent"
+            curl -sS --proxy http://localhost:29418 -X POST -H 'Content-Type: application/json' -d @veracode-annotations.json "$base/annotations" -o annotations-response.json -w 'annotations: HTTP %{http_code}\n' || echo "Code Insights annotations not sent"
+
+    - step: &veracode-policy-scan
+        name: Veracode policy scan (submit, do not wait)
+        image: veracode/api-wrapper-java:26.10.20.1@sha256:cfdb8ea641a0b5b160afc3920d1995deeb722fb902b5c5e79cf6a711cc56ca11
+        script:
+          - |
+            set -u
+            : "${VERACODE_APP_NAME:?repository variable VERACODE_APP_NAME is not set}"
+            java -jar /opt/veracode/api-wrapper.jar -vid "$VERACODE_API_KEY_ID" -vkey "$VERACODE_API_KEY_SECRET" \
+              -action UploadAndScan -appname "$VERACODE_APP_NAME" -createprofile false \
+              -filepath veracode-package.zip -version "${BITBUCKET_REPO_SLUG:-local} ${BITBUCKET_COMMIT:-local} #${BITBUCKET_BUILD_NUMBER:-0}" > veracode-policy-scan.log 2>&1 || { tail -20 veracode-policy-scan.log; echo "Policy scan was not submitted (audit: reported, not blocking)"; exit 0; }
+            tail -5 veracode-policy-scan.log
+            echo "Policy scan submitted to profile $VERACODE_APP_NAME. The verdict appears in the Veracode Platform."
+        artifacts:
+          - veracode-policy-scan.log
+
+pipelines:
+  pull-requests:
+    '**':
+      - step: *build-image                              # team
+      - step: *veracode-package
+      - step: *veracode-pipeline-scan
+      - step: *veracode-report
+  branches:
+    main:
+      - step: *build-image                              # team
+      - step: *veracode-package
+      - step: *veracode-pipeline-scan
+      - step: *veracode-report
+      - step: *veracode-policy-scan

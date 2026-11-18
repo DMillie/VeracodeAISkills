@@ -29,3 +29,4 @@ veracode-gitlab-component templates/gitlab/component
 veracode-gitlab-component templates/gitlab/examples
 veracode-gitlab-component tools/detect_integration.py
 veracode-gitlab-component tools/gitlab-ci-lint.sh
+veracode-repo-onboarding templates/bitbucket

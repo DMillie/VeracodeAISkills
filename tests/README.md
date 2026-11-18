@@ -33,3 +33,9 @@ GitLab API and saved scan results. The agent never sees an answer key.
 with planted flaws and keys; those and the runner live with the lab, not here. One run
 per scenario is one sample: a pass is not proof, and a fail on a model that passed before
 is the signal worth reading.
+
+## Bitbucket
+
+- Static: `tests/static/test_bitbucket.py` (part of the static tier) checks the draft pipeline's structure, pins, credentials handling and that it cannot start two pipelines for one pull request.
+- Local steps: `tests/bitbucket/run.sh <example.yml> <source dir> <work dir> [expected findings]` runs the package, scan and report step scripts in their pinned images. Needs docker and Veracode credentials in the environment; uses one Pipeline Scan.
+- Not covered: anything on Bitbucket itself. No pipeline has run there.

@@ -80,3 +80,7 @@ are described in [`tests/README.md`](tests/README.md); they need a lab.
 
 See [`evidence/lab-runs.md`](evidence/lab-runs.md). Component tag 1.3.0 does not
 parse; use 1.3.1.
+
+## Bitbucket (draft)
+
+A draft `bitbucket-pipelines.yml` and the Bitbucket facts are in `veracode-repo-onboarding/templates/bitbucket/` and `reference/facts/bitbucket.md`. The step scripts were run locally; nothing has run on Bitbucket.
