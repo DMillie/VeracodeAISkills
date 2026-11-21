@@ -8,16 +8,17 @@ Agent skills for working with Veracode, for Claude and other tools that load
 | [`veracode-integration`](veracode-integration/) | Building against the Veracode APIs: findings exports and BI feeds (Power BI, Fabric), Jira/ServiceNow sync, mitigations, CI/CD wiring, users and credentials, HMAC signing and the legacy XML APIs (build- and scan-name-scoped results), Reporting and Custom PDF APIs, troubleshooting API errors |
 | [`veracode-onboarding`](veracode-onboarding/) | Getting started: platform setup, API service accounts and credentials, repository scanning (GitHub, GitLab, Azure DevOps workflow integrations), the Veracode CLI and packaging, CI pipeline gates. Also a CSM mode for kickoffs, readiness questionnaires, plans, trackers and status updates |
 | [`veracode-repo-onboarding`](veracode-repo-onboarding/) | An agent adding Veracode to one repository's existing CI: find the branching model, place Pipeline, sandbox and policy scans, prove the package, open one additions-only merge request that includes a shared GitLab component, verify the results. GitLab CI syntax; the playbooks are SCM-neutral |
+| [`veracode-azure-devops-onboarding`](veracode-azure-devops-onboarding/) | The Azure DevOps twin of the previous skill: an agent adding Veracode to one repository's Azure Pipelines through `tools/ado.py`: discover branches, tags, branch policies and pipelines, use the organisation's `veracode-pipelines` template repository pinned by tag (or a copy, or the marketplace task for upload only), lint with the preview API, open one pull request per long-lived branch, verify the run. `audit` stage only; one repository tested |
 | [`veracode-packaging-proof`](veracode-packaging-proof/) | Choosing the artifact for static analysis and proving it is the right one by comparing candidate scans; diagnosing a scan that came back green with few or no findings |
 | [`veracode-gitlab-component`](veracode-gitlab-component/) | One shared, versioned Veracode GitLab CI/CD component (1.3.1 included) that repositories include by reference: setting it up, writing the include, moving from audit to block, releasing it |
 
 Each skill folder holds a `SKILL.md` (the router and rules) and a `reference/`
-folder that the skill reads on demand. The three added in 2026-11 also carry
+folder that the skill reads on demand. The ones added in 2026-11 also carry
 playbooks, templates and small helper scripts.
 
 `veracode-onboarding` is the getting-started and CSM guide for people.
-`veracode-repo-onboarding` is the step-by-step playbook an agent follows to
-change one repository.
+`veracode-repo-onboarding` (GitLab) and `veracode-azure-devops-onboarding` (Azure DevOps)
+are the step-by-step playbooks an agent follows to change one repository.
 
 ## Install
 
@@ -34,13 +35,14 @@ contains `<skill-name>/SKILL.md` and `<skill-name>/reference/…`, and rename th
 zip -r veracode-integration.skill veracode-integration
 zip -r veracode-onboarding.skill veracode-onboarding
 zip -r veracode-repo-onboarding.skill veracode-repo-onboarding
+zip -r veracode-azure-devops-onboarding.skill veracode-azure-devops-onboarding
 zip -r veracode-packaging-proof.skill veracode-packaging-proof
 zip -r veracode-gitlab-component.skill veracode-gitlab-component
 ```
 
 ## Shared files
 
-The three 2026-11 skills use some of the same playbooks, reference files, templates
+The 2026-11 skills use some of the same playbooks, reference files, templates
 and scripts. A skill is installed one folder at a time, so each carries its own
 copy. The source for those copies is `shared/`; `shared/manifest.txt` lists which
 skill gets which file.
@@ -84,3 +86,7 @@ parse; use 1.3.1.
 ## Bitbucket (draft)
 
 A draft `bitbucket-pipelines.yml` and the Bitbucket facts are in `veracode-repo-onboarding/templates/bitbucket/` and `reference/facts/bitbucket.md`. The step scripts were run locally; nothing has run on Bitbucket.
+
+## Azure DevOps
+
+`veracode-azure-devops-onboarding` carries the Azure facts in `reference/facts/azure-devops.md` (register `evidence/register/ADO.md`), the `tools/ado.py` that makes every Azure DevOps call, and the template repository content in `templates/azure/`. What ran: one TypeScript repository on a cloud organisation with one self-hosted agent, `audit` stage (see the facts file and `evidence/lab-runs.md`). Not tested: stages beyond `audit`, pull-request build validation, container scan, gating by baseline, Microsoft-hosted agents. A static test is `tests/static/test_azure.py`; tests that need an organisation are in `tests/azure/`.

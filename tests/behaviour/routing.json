@@ -1,5 +1,5 @@
 {
- "skills_note": "Judge by the front matter of each SKILL.md only.",
+ "skills_note": "Judge by the front matter of each SKILL.md only. must_not names the skill that must not be chosen.",
  "questions": [
   {"n": 1, "request": "Add Veracode scanning to this repo's GitLab pipeline.", "expect": "veracode-repo-onboarding"},
   {"n": 2, "request": "We use git-flow with release branches. Where should the policy scan run and where the pipeline scan?", "expect": "veracode-repo-onboarding"},
@@ -14,6 +14,14 @@
   {"n": 11, "request": "Draft a kickoff agenda and a 30-60-90 day plan for a customer starting with Veracode.", "expect": "veracode-onboarding"},
   {"n": 12, "request": "This repo was onboarded to Veracode last year with a copied CI file. Bring it up to date.", "expect": ["veracode-repo-onboarding", "veracode-gitlab-component"]},
   {"n": 13, "request": "Fix the SQL injection Veracode found in OrderController.java.", "expect": "none"},
-  {"n": 14, "request": "Add SonarQube analysis to our Jenkins pipeline.", "expect": "none"}
+  {"n": 14, "request": "Add SonarQube analysis to our Jenkins pipeline.", "expect": "none"},
+  {"n": 15, "request": "Add Veracode scanning to the azure-pipelines.yml of this Azure DevOps repository.", "expect": "veracode-azure-devops-onboarding"},
+  {"n": 16, "request": "Onboard our Azure Repos repository to Veracode. We keep shared pipeline templates in a repository called veracode-pipelines.", "expect": "veracode-azure-devops-onboarding"},
+  {"n": 17, "request": "After adding Veracode to our Azure pipeline the run sits at 'needs permission'. How do we onboard this repo properly?", "expect": "veracode-azure-devops-onboarding"},
+  {"n": 18, "request": "Use the Veracode Azure DevOps extension task to upload our build from Azure Pipelines, one repository.", "expect": "veracode-azure-devops-onboarding"},
+  {"n": 19, "request": "Our Azure DevOps main branch has a branch policy. Open a pull request that adds Veracode scans to the pipeline.", "expect": "veracode-azure-devops-onboarding"},
+  {"n": 20, "request": "Add Veracode to the .gitlab-ci.yml of this self-managed GitLab project.", "expect": "veracode-repo-onboarding", "must_not": "veracode-azure-devops-onboarding"},
+  {"n": 21, "request": "In our GitLab merge request pipelines, where should the sandbox scan run and where the policy scan?", "expect": "veracode-repo-onboarding", "must_not": "veracode-azure-devops-onboarding"},
+  {"n": 22, "request": "Set up the Veracode Workflow Integration so every repository in our Azure DevOps organisation is scanned.", "expect": "veracode-onboarding", "must_not": "veracode-azure-devops-onboarding"}
  ]
 }

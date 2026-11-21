@@ -50,7 +50,7 @@ exit still successful. Needs a URL-style `origin` remote. Not tested on any othe
 
 ## Not tested
 
-- Any SCM other than self-managed GitLab: GitHub, Azure DevOps, Bitbucket, gitlab.com.
+- Any SCM other than self-managed GitLab: GitHub, Bitbucket, gitlab.com. Azure DevOps: one run of the GitLab skill on one repository (2026-11-20, evidence/register/ADO.md); the Azure skill itself has not been run as an installed skill.
 - The Veracode GitLab Workflow Integration.
 - `block-policy` at the release point on a live pipeline; merge-request-event pipelines.
 - Android.

@@ -1,0 +1,134 @@
+# Example: git-flow, Java/Maven service (payments-service shape): develop and release/* to sandboxes, policy scan on release tags.
+trigger:
+  branches:
+    include: ['*']
+  tags:
+    include: ['*']
+
+pool: Default
+
+# Veracode: shared steps template of the security team, pinned to a release tag (change the tag to upgrade).
+resources:
+  repositories:
+    - repository: veracode
+      type: git
+      name: veracode-pipelines
+      ref: refs/tags/v1.0.0
+
+variables:
+  MAVEN_OPTS: "-Dmaven.repo.local=$(Pipeline.Workspace)/.m2/repository"
+  SHORT_SHA: $[substring(variables['Build.SourceVersion'], 0, 8)]
+
+stages:
+  - stage: build
+    jobs:
+      - job: build
+        container: maven:3.9-eclipse-temurin-17
+        steps:
+          - task: Cache@2
+            displayName: maven cache
+            inputs:
+              key: 'maven | "$(Build.SourceBranchName)"'
+              path: $(Pipeline.Workspace)/.m2/repository
+          - script: |
+              set -e
+              ./mvnw -B compile
+            displayName: compile
+
+  - stage: test
+    jobs:
+      - job: test
+        container: maven:3.9-eclipse-temurin-17
+        steps:
+          - task: Cache@2
+            displayName: maven cache
+            inputs:
+              key: 'maven | "$(Build.SourceBranchName)"'
+              path: $(Pipeline.Workspace)/.m2/repository
+          - script: |
+              set -e
+              ./mvnw -B test
+            displayName: test
+          - task: PublishTestResults@2
+            displayName: publish test results
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: JUnit
+              testResultsFiles: target/surefire-reports/TEST-*.xml
+          - publish: target/surefire-reports
+            artifact: surefire-reports
+            condition: succeededOrFailed()
+
+  - stage: package
+    jobs:
+      - job: package
+        container: maven:3.9-eclipse-temurin-17
+        steps:
+          - task: Cache@2
+            displayName: maven cache
+            inputs:
+              key: 'maven | "$(Build.SourceBranchName)"'
+              path: $(Pipeline.Workspace)/.m2/repository
+          - script: |
+              set -e
+              ./mvnw -B package -DskipTests
+            displayName: package
+          - task: CopyFiles@2
+            displayName: collect jar
+            inputs:
+              contents: target/payments-service-*.jar
+              targetFolder: $(Build.ArtifactStagingDirectory)/jar
+              flattenFolders: true
+          - publish: $(Build.ArtifactStagingDirectory)/jar
+            artifact: payments-service-jar
+
+      - job: docker_image
+        displayName: docker-image
+        dependsOn: package
+        condition: and(succeeded(), or(eq(variables['Build.SourceBranch'], 'refs/heads/main'), startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
+        steps:
+          - script: |
+              set -e
+              IMAGE="${CONTAINER_REGISTRY_IMAGE:-payments-service}"
+              docker build -t "$IMAGE:$SHORT_SHA" -t "$IMAGE:latest" .
+              if [ -n "$CONTAINER_REGISTRY" ]; then
+                echo "$CONTAINER_REGISTRY_PASSWORD" | docker login -u "$CONTAINER_REGISTRY_USER" --password-stdin "$CONTAINER_REGISTRY"
+                docker push "$IMAGE:$SHORT_SHA"
+                docker push "$IMAGE:latest"
+              else
+                echo "No container registry configured; image built but not pushed"
+              fi
+            displayName: docker build
+
+  # Veracode security scanning (rollout stage audit: nothing here fails the run).
+  # Scans the deployable jar the package stage already builds, so it runs after that stage.
+  # Placement (git-flow): develop -> sandbox "develop"; release/x.y -> sandbox "release-x-y";
+  # release tags vX.Y.Z -> policy scan "Release vX.Y.Z" (the compliance verdict); main and feature
+  # branches get the Pipeline Scan only. Change the two lists below to move a scan.
+  # What it does and how to change it: veracode-steps.yml in repository veracode-pipelines.
+  - stage: veracode
+    displayName: veracode
+    dependsOn: package
+    jobs:
+      - job: veracode
+        variables:
+          - group: veracode
+        steps:
+          - checkout: self
+          - download: current
+            artifact: payments-service-jar
+          - bash: |
+              set -euo pipefail
+              mkdir -p "$(Build.ArtifactStagingDirectory)/veracode"
+              cp "$(Pipeline.Workspace)"/payments-service-jar/payments-service-*.jar "$(Build.ArtifactStagingDirectory)/veracode/payments-service.jar"
+              ls -l "$(Build.ArtifactStagingDirectory)/veracode"
+            displayName: 'Veracode: take the packaged jar'
+            continueOnError: true
+          - template: veracode-steps.yml@veracode
+            parameters:
+              appProfile: payments-service
+              package: $(Build.ArtifactStagingDirectory)/veracode/payments-service.jar
+              policyScanRefs: ['refs/tags/v']
+              sandboxRefs:
+                - {prefix: 'refs/heads/develop', sandbox: develop}
+                - {prefix: 'refs/heads/release/', sandbox: 'release-@suffix@'}

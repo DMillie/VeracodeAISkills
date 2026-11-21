@@ -33,3 +33,12 @@ veracode-gitlab-component/SKILL.md	1\.3\.1	the component version that parses
 veracode-onboarding/SKILL.md	veracode-repo-onboarding	the older skill routes to the new ones
 veracode-onboarding/reference/cli-and-packaging.md	candidate	older skill: auto-packager output is a candidate
 veracode-integration/SKILL.md	Never print a signing exception	signing errors can contain the secret
+veracode-azure-devops-onboarding/SKILL.md	Never handle a credential value	credentials are never read or printed
+veracode-azure-devops-onboarding/SKILL.md	Additions only	the CI change only adds
+veracode-azure-devops-onboarding/SKILL.md	Each branch has its own copy of the YAML	one pull request per long-lived branch
+veracode-azure-devops-onboarding/SKILL.md	never a branch, never .latest	the template is pinned by tag
+veracode-azure-devops-onboarding/SKILL.md	not see a missing variable group or a permission gate	the preview lint is not a run
+veracode-azure-devops-onboarding/SKILL.md	Accepted upload is not completed scan	report only what was verified
+shared/playbook/00-integration-ladder-azure.md	unconfirmed	the extension collision is not claimed as proven
+shared/playbook/05-ci-change-azure.md	0 deleted lines	the change only adds
+shared/reference/facts/azure-devops.md	UNCONFIRMED	the extension collision stays flagged
