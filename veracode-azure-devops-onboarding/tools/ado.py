@@ -370,7 +370,7 @@ def cmd_pr_status(a, az):
 def refusal_counter(az, repo, pid, bump=None):
     """Refusals in a row for this repo and PR, kept in a small file in the temp dir. bump=True adds one, False resets."""
     f = os.path.join(tempfile.gettempdir(), "ado-pr-refusals-" + hashlib.sha1(f"{az.project}/{repo}/{pid}".encode()).hexdigest()[:16])
-    try: n = int(open(f).read().strip() or 0)
+    try: n = int(open(f).read().strip() or 0) if time.time() - os.path.getmtime(f) < 3600 else 0   # a count older than an hour is from another session
     except (OSError, ValueError): n = 0
     if bump is False:
         with contextlib.suppress(OSError): os.remove(f)
