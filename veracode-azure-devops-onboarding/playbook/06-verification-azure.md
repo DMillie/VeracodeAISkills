@@ -13,14 +13,33 @@ python3 tools/pipeline_scan_summary.py work/results-<run id>/results.json
 node tools/scan-check.js work/results-<run id>/results.json --module <deployable> --place <file>
 ```
 
-`run-wait` (add `--timeout <seconds>` if needed) prints the result of every stage, job and step with its warnings. Budget: 10 minutes for
-the package, Pipeline Scan and directory scan of a small service. If a step is still queued after
-15 minutes the one agent is busy: say so, do not queue more.
+`run-wait` loops until the run is final (`--timeout <seconds>` is an optional cap). On every poll it prints the elapsed
+minutes and WHY the run is not final: `waiting for an agent (N jobs ahead in pool <name>)` or
+`WAITING FOR PERMISSION: <resource type and name>: a person must click Permit on the run page`. At the end it prints
+every stage, job and step with its warnings and a `VERACODE STEPS:` list, one line per Veracode step: `ran`,
+`skipped by placement`, `skipped after a failure` or the warning text. Budget once the run has an agent: 10 minutes
+for the package, Pipeline Scan and directory scan of a small service. Do not queue more runs while one waits. If your shell tool times out before `run-wait` returns, call it again: the run keeps going.
+
+## Queued is not blocked
+
+A run that is `notStarted` or `inProgress` is normally waiting for the single agent. Waits of 10 to 30 minutes are
+normal on a shared pool [ADO-29]. Waiting is part of the job: keep calling `ado.py run-wait <run id>` (it loops).
+Never stop or hand back while a run you need is not final. The ONLY reason to ask a person is a permission gate,
+and `run-wait` prints `WAITING FOR PERMISSION: ...` when there is one. Do not queue a second run to "unstick" a first.
+
+## Green does not mean scanned
+
+Check these in order for every run you report. `succeeded` and `partiallySucceeded` prove nothing by themselves [ADO-28].
+1. Download the artifact: `ado.py artifact <run id> veracode-results <dir>`. No artifact: the scan did not run.
+2. `results.json` must be in it. Missing: the Pipeline Scan did not produce results, whatever the colour.
+3. Read every step warning in the `run-wait` output and the `VERACODE STEPS:` list. A Veracode step `skipped after a
+   failure` or with a warning (for example `Veracode: take the packaged jar`) means no scan of that package.
+4. Run `pipeline_scan_summary.py` and `scan-check.js` on `results.json` and quote the counts and the verdict.
 
 Colours: `succeeded` all fine. `partiallySucceeded` (orange) = a step used `continueOnError` and logged a warning:
 **read the warning, report it, do not retry**. `failed` = diagnose from `run-log`
 (reference/troubleshooting.md); never re-run blind (rule 9). "Waiting for permission" = a person must click Permit
-(00-integration-ladder-azure): stop.
+(00-integration-ladder-azure): stop. A run that is only queued or running is NOT a stop (see "Queued is not blocked").
 
 ## Which run shows what
 

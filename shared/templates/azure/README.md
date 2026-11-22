@@ -57,6 +57,12 @@ level), the `veracode` job with `variables: - group: veracode`, `- checkout: sel
    make it, say so in the pull request, and keep every variable's value unchanged. Convert the pipeline to `jobs:` only
    if the team agrees.
 
+**Gotcha: pipefail and `head`.** A packaging step under `set -o pipefail` that ends in `... | head -3` exits 1 when
+`head` closes the pipe: the zip is fine, the step shows failed. Do not pipe listings into `head` under pipefail (use
+`sed -n 1,3p`, or drop pipefail for that line). [ADO-30]
+
+**Gotcha: jars on a reused workspace.** Empty the download folder and require exactly one jar (`examples/git-flow-java.after.yml`). [ADO-28]
+
 Always run `ado.py validate <repo> <pipeline> <branch> --file <the new file>` before pushing: it must print the
 Veracode step names. The preview does not run anything and cannot see a wrong profile name or a missing variable.
 

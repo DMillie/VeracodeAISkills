@@ -62,10 +62,20 @@ monorepo with two calls, `ado.py run` and `ado.py profile`. Say so in the report
   Steps appended to such a job run inside the team's image, which may lack java and curl.
 
 ## Artifacts
+- **A self-hosted agent REUSES its workspace between runs.** `$(Pipeline.Workspace)` keeps what an earlier run left,
+  so after `- download: current` the artifact folder can hold an older `payments-service-2.4.0.jar` (another
+  branch's run) next to the new jar. `cp .../payments-service-*.jar x.jar` then fails ("target is not a directory"),
+  the Pipeline Scan is skipped with only a warning, and the run still looks green. Empty the download folder
+  first, require exactly one jar, print the listing (`examples/git-flow-java.after.yml`). [ADO-28]
 - `- publish: <one path>` with `artifact: <name>` stores a pipeline artifact (no globs: collect
   files into one folder first). A later job reads it with `- download: current`. Files lose the
   executable bit. [ADO-20]
 - Azure Artifacts (feeds) is the package registry. Not used here.
+
+## Queued is not blocked
+- A run that is `notStarted` or `inProgress` is normally waiting for the single agent; waits of 10 to 30 minutes
+  are normal on a shared pool. Waiting is part of the job. The only reason to ask a person is a permission gate
+  (a Checkpoint.Authorization record in the run's timeline that is not completed). `ado.py run-wait` says which. [ADO-29]
 
 ## Branch policies and what they mean for you
 - A branch with any policy accepts no direct push and cannot be deleted; every change arrives by
@@ -77,6 +87,9 @@ monorepo with two calls, `ado.py run` and `ado.py profile`. Say so in the report
   result to allow the merge. Adding or changing a policy is a project setting; **this skill
   never changes it**. Without one, pull requests get no Veracode run until the branch run is
   queued by hand. [ADO-10~]
+- **Known limit: pull requests get no scan** until a person adds a build validation policy (Branch policies >
+  Build validation on each protected branch, pointing at the pipeline). With `trigger` on all branches, the push of
+  the PR's source branch already produces a Pipeline Scan run that the reviewer can read. [ADO-10~] [ADO-27]
 - Tags are not protected in Azure Repos (a "Create tag" permission instead). [ADO-22]
 
 ## The pipeline's identity and its fences

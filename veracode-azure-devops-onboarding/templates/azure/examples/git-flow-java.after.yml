@@ -115,12 +115,23 @@ stages:
           - group: veracode
         steps:
           - checkout: self
+          # The self-hosted agent REUSES its workspace between runs: a jar of an older run (another branch, another
+          # version) can still sit in the download folder. Empty it first, then require exactly one jar.
+          - bash: rm -rf "$(Pipeline.Workspace)/payments-service-jar"
+            displayName: 'Veracode: empty the jar download folder'
           - download: current
             artifact: payments-service-jar
           - bash: |
               set -euo pipefail
+              dir="$(Pipeline.Workspace)/payments-service-jar"
+              echo "jars in $dir:"; ls -l "$dir"
+              n=$(find "$dir" -maxdepth 1 -type f -name 'payments-service-*.jar' | wc -l)
+              if [ "$n" -ne 1 ]; then
+                echo "##vso[task.logissue type=error]VERACODE PACKAGE ERROR: expected exactly 1 jar in $dir, found $n. Pipeline Scan will NOT run."
+                exit 1
+              fi
               mkdir -p "$(Build.ArtifactStagingDirectory)/veracode"
-              cp "$(Pipeline.Workspace)"/payments-service-jar/payments-service-*.jar "$(Build.ArtifactStagingDirectory)/veracode/payments-service.jar"
+              cp "$dir"/payments-service-*.jar "$(Build.ArtifactStagingDirectory)/veracode/payments-service.jar"
               ls -l "$(Build.ArtifactStagingDirectory)/veracode"
             displayName: 'Veracode: take the packaged jar'
             continueOnError: true

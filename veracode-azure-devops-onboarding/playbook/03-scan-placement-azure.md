@@ -50,6 +50,11 @@ write "policy scan configured, will not run on tags until the trigger lists them
 ask. Pull requests run the pipeline only through a build validation policy, which a person adds
 [ADO-10~]. Until then there is no Pipeline Scan before merge; the plan says so in the first paragraph.
 
+**Known limit: pull requests are not scanned.** All lab agents reported it. A person must add the policy:
+Project settings > Repositories > the repository > Policies > the protected branch > Build validation > the
+pipeline. The agent does not add it. With `trigger` on all branches, the push of the PR's source branch already
+produces a Pipeline Scan run that the reviewer can read (find it with `ado.py runs <repo> --branch <source>`). [ADO-10~] [ADO-27]
+
 Packaging: the job writes `$(Build.ArtifactStagingDirectory)/veracode/veracode-package.zip` (the
 template's default `package`). Playbook 04 says what goes in.
 

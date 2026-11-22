@@ -14,15 +14,18 @@ and AZURE_DEVOPS_PAT. Global options before or after the subcommand: --project (
   ado.py pr-status <repo> <id>
   ado.py pr-complete <repo> <id> [--strategy noFastForward|squash|rebase|rebaseMerge]
                                               refuses unless the latest run of the source branch, on the PR's source
-                                              commit, ended succeeded or partiallySucceeded
+                                              commit, ended succeeded or partiallySucceeded; a refusal prints the next command
+                                              (REFUSED: ... Next: ...), and STOP after 3 refusals in a row for the same PR
   ado.py run <repo> <pipeline> <branch>       queue a run
   ado.py runs <repo> [--branch B] [--top N]   recent runs
-  ado.py run-wait <id> [--timeout S]          poll until done; stage/job/step results and warnings; exit 1 unless (partially) succeeded
+  ado.py run-wait <id> [--timeout S]          loops until the run is final (S = optional cap); every poll prints elapsed minutes and why it waits
+                                              (waiting for an agent | WAITING FOR PERMISSION); at the end stage/job/step results, warnings and
+                                              VERACODE STEPS; exit 1 unless (partially) succeeded; exit 4 when a permission gate holds the run
   ado.py run-log <id> [--step TEXT]           log of the steps whose name contains TEXT (default: steps with issues or failures)
   ado.py artifact <id> <name> <dir>           download a pipeline artifact and unzip it into <dir>
   ado.py profile <name> [--create]            Veracode application profile by exact name (get; --create = get or create)
 """
-import argparse, base64, io, json, os, re, shutil, subprocess, sys, tempfile, time, urllib.error, urllib.parse, urllib.request, zipfile
+import argparse, base64, contextlib, datetime, hashlib, io, json, os, re, shutil, subprocess, sys, tempfile, time, urllib.error, urllib.parse, urllib.request, zipfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_REPO = "veracode-pipelines"
@@ -158,6 +161,9 @@ def cmd_clone(a, az):
 def cmd_push(a, az):
     if not a.branch.startswith("veracode/"): die("push refuses any branch that does not start with veracode/ (this tool never writes to a team branch)")
     if not os.path.isdir(os.path.join(a.dir, ".git")): die(f"{a.dir} is not a git working copy")
+    if not getattr(a, "allow_no_veracode", False) and detect_dir(a.dir)["verdict"] == "not onboarded":
+        print("REFUSED: this branch contains no Veracode template reference. Make the CI change first (playbook/05-ci-change-azure.md), validate it, then push.")
+        sys.exit(1)
     rc, remote = az.git(["remote", "get-url", "origin"], cwd=a.dir)
     if rc or "/_git/" not in remote: die("origin of this working copy is not an Azure DevOps repository")
     rc, out = az.git(["push", "origin", f"HEAD:refs/heads/{a.branch}"], cwd=a.dir)   # no --force, ever
@@ -208,15 +214,87 @@ def cmd_runs(a, az):
 
 def timeline(az, bid): return sorted(az.get(f"/_apis/build/builds/{bid}/timeline").get("records", []), key=lambda r: (r.get("order") or 0))
 
+def parse_ts(t):
+    if not t: return None
+    try:
+        d = datetime.datetime.fromisoformat(re.sub(r"(\.\d{6})\d+", r"\1", t.replace("Z", "+00:00")))
+        return d if d.tzinfo else d.replace(tzinfo=datetime.timezone.utc)
+    except ValueError: return None
+
+def elapsed_minutes(b, t0):
+    q = parse_ts(b.get("queueTime"))
+    secs = (datetime.datetime.now(datetime.timezone.utc) - q).total_seconds() if q else time.time() - t0
+    return max(0, int(secs // 60))
+
+GATE_KINDS = re.compile(r"(repositor(?:y|ies)|variable group|service connection|secure file|environment|agent pool|queue|pool)\W+(?:named\s+)?['\"]?([\w./ -]{1,60})", re.I)
+def permission_gate(rec):
+    """Description of an uncompleted Checkpoint.Authorization record in the timeline, or None."""
+    byid = {r["id"]: r for r in rec}
+    for r in rec:
+        if "Checkpoint.Authorization" in (r.get("type"), r.get("name")) and r.get("state") != "completed":
+            text = " ".join(i.get("message", "") for i in (r.get("issues") or []) + (byid.get(r.get("parentId"), {}).get("issues") or []))
+            m = GATE_KINDS.search(text)
+            if m: return f"{m.group(1)} {m.group(2).strip()}"
+            p = byid.get(r.get("parentId")) or {}
+            return "resource of " + (byid.get(p.get("parentId"), p).get("name") or "this run") + " (the run page names it)"
+    return None
+
+def jobs_ahead(az, b):
+    """(unfinished job requests queued before this run, pool name) in the self-hosted pool that holds this run's job
+    request; (None, None) when unreadable or the job has no request yet."""
+    try:
+        with contextlib.redirect_stderr(io.StringIO()):
+            pools = [p for p in az.get("/_apis/distributedtask/pools", project=False).get("value", []) if not p.get("isHosted")]
+            for p in pools:
+                reqs = az.get(f"/_apis/distributedtask/pools/{p['id']}/jobrequests", project=False).get("value", [])
+                openr = [r for r in reqs if not r.get("result")]
+                mine = [r for r in openr if (r.get("owner") or {}).get("id") == b["id"]]
+                if not mine: continue
+                mq = min(r.get("queueTime") or "~" for r in mine)
+                return len([r for r in openr if r not in mine and (r.get("queueTime") or "~") < mq]), p["name"]
+    except SystemExit: pass
+    return None, None
+
+def wait_reason(az, b, rec):
+    """('permission'|'agent'|'running', one line) for a run that is not final."""
+    gate = permission_gate(rec)
+    if gate: return "permission", f"WAITING FOR PERMISSION: {gate}: a person must click Permit on the run page"
+    active = [r for r in rec if r.get("type") == "Task" and r.get("state") == "inProgress"]
+    if active: return "running", f"running: {active[0]['name']}"
+    n, pool = jobs_ahead(az, b)
+    if n is None: return "agent", "waiting for an agent"
+    return "agent", f"waiting for an agent ({n} jobs ahead in pool {pool})"
+
+def veracode_steps(rec):
+    """One (name, text) per Veracode step: ran / skipped by placement / skipped after a failure / warning text."""
+    byid = {r["id"]: r for r in rec}; out = []
+    for r in sorted(rec, key=lambda r: r.get("order") or 0):
+        if r.get("type") != "Task" or not (r.get("name") or "").lower().startswith("veracode"): continue
+        res = r.get("result")
+        msg = "; ".join(i["message"][:200] for i in r.get("issues") or [])
+        if res == "skipped":
+            before = [x for x in rec if x.get("type") == "Task" and x.get("parentId") == r.get("parentId") and (x.get("order") or 0) < (r.get("order") or 0)
+                      and (x.get("result") in ("failed", "canceled") or any(i.get("type") == "error" for i in x.get("issues") or []))]
+            text = "skipped after a failure" if before else "skipped by placement"
+        elif res in ("succeededWithIssues", "failed", "canceled"): text = f"{'warning' if res == 'succeededWithIssues' else res}: {msg or 'see run-log'}"
+        elif res == "succeeded": text = "ran"
+        else: text = res or r.get("state") or "no result"
+        out.append((r["name"], text))
+    return out
+
 def cmd_run_wait(a, az):
-    t0 = time.time()
+    t0 = time.time(); gate_polls = 0
     while True:
         b = build_by_id(az, a.id)
         if b["status"] == "completed": break
-        if time.time() - t0 > a.timeout: die(f"run {a.id} still {b['status']} after {a.timeout} s (it keeps running; call run-wait again)", 3)
-        time.sleep(15)
-    res = b.get("result"); rec = timeline(az, a.id); byid = {r["id"]: r for r in rec}
-    out = {"run_id": a.id, "result": res, "branch": short(b["sourceBranch"]), "commit": b.get("sourceVersion"), "records": []}
+        kind, why = wait_reason(az, b, timeline(az, a.id))
+        print(f"[{elapsed_minutes(b, t0)} min] run {a.id} {b['status']}: {why}", flush=True)
+        gate_polls = gate_polls + 1 if kind == "permission" else 0
+        if gate_polls >= 2: print("A person must act. Tell them; do not retry the run. (exit 4)"); sys.exit(4)
+        if a.timeout and time.time() - t0 > a.timeout: die(f"run {a.id} still {b['status']} after {a.timeout} s (it keeps running; call run-wait again)", 3)
+        time.sleep(a.interval)
+    res = b.get("result"); rec = timeline(az, a.id)
+    out = {"run_id": a.id, "result": res, "branch": short(b["sourceBranch"]), "commit": b.get("sourceVersion"), "elapsed_minutes": elapsed_minutes(b, t0), "records": []}
     L = [f"run {a.id} {res} on {short(b['sourceBranch'])} ({(b.get('sourceVersion') or '')[:8]}), pipeline {b['definition']['name']}"]
     kids = {}
     for r in rec: kids.setdefault(r.get("parentId"), []).append(r)
@@ -229,6 +307,10 @@ def cmd_run_wait(a, az):
             for i in r.get("issues") or []: L.append("  " * (depth + 2) + f"{i['type']}: {i['message'][:300]}")
             walk(r["id"], depth + 1)
     walk(None, 0)
+    vs = veracode_steps(rec); out["veracode_steps"] = [{"step": n, "state": t} for n, t in vs]
+    L.append("VERACODE STEPS:")
+    L += [f"  {n}: {t}" for n, t in vs] or ["  (no step with Veracode in its name: the Veracode change did not run in this run)"]
+    L.append(f"elapsed {out['elapsed_minutes']} min. A green colour proves nothing: open artifact veracode-results and require results.json (playbook 06).")
     emit(a, out, L)
     sys.exit(0 if res in ("succeeded", "partiallySucceeded") else 1)
 
@@ -285,14 +367,36 @@ def cmd_pr_status(a, az):
     L.append("  latest run of the source branch: " + (f"{b['id']} {d['latest_run']['status']} on commit {(b.get('sourceVersion') or '')[:8]}" + ("" if b.get("sourceVersion") == d["source_commit"] else "  (NOT the PR's source commit)") if b else "none"))
     emit(a, d, L)
 
+def refusal_counter(az, repo, pid, bump=None):
+    """Refusals in a row for this repo and PR, kept in a small file in the temp dir. bump=True adds one, False resets."""
+    f = os.path.join(tempfile.gettempdir(), "ado-pr-refusals-" + hashlib.sha1(f"{az.project}/{repo}/{pid}".encode()).hexdigest()[:16])
+    try: n = int(open(f).read().strip() or 0)
+    except (OSError, ValueError): n = 0
+    if bump is False:
+        with contextlib.suppress(OSError): os.remove(f)
+        return 0
+    if bump:
+        n += 1
+        with contextlib.suppress(OSError): open(f, "w").write(str(n))
+    return n
+
+def pr_refuse(a, az, what, nxt):
+    n = refusal_counter(az, a.repo, a.id, bump=True)
+    print(f"REFUSED: {what}. Next: {nxt} Do not call pr-complete again before that is done.")
+    if n >= 3: print("STOP: you are repeating a refused call.")
+    sys.exit(1)
+
 def cmd_pr_complete(a, az):
     rid = az.repo(a.repo)["id"]; p = pr_get(az, rid, a.id)
-    if p["status"] != "active": die(f"pull request {a.id} is {p['status']}", 1)
+    if p["status"] != "active": pr_refuse(a, az, f"pull request {a.id} is {p['status']}", f"ado.py pr-status {a.repo} {a.id}; there is nothing left to complete.")
     src = short(p["sourceRefName"]); commit = p["lastMergeSourceCommit"]["commitId"]; b = latest_run(az, rid, src)
-    if not b: die(f"refused: no run of {src} exists; wait for the branch run", 1)
-    if b.get("sourceVersion") != commit: die(f"refused: the latest run ({b['id']}) is not on the PR's source commit {commit[:8]}; wait for or queue the run of that commit", 1)
+    if not b: pr_refuse(a, az, f"no run of {src} exists", f"ado.py runs {a.repo} --branch {src} (the push should have queued one; see ado.py discover {a.repo} for the pipeline name).")
+    if b.get("sourceVersion") != commit:
+        pr_refuse(a, az, f"latest run {b['id']} on {src} is not on the PR's source commit {commit[:8]}", f"ado.py runs {a.repo} --branch {src}, then ado.py run-wait <the run whose commit is {commit[:8]}>.")
     st = b.get("result") or b["status"]
-    if st not in ("succeeded", "partiallySucceeded"): die(f"refused: latest run {b['id']} of {src} is {st}; it must be succeeded or partiallySucceeded", 1)
+    if st not in ("succeeded", "partiallySucceeded"):
+        if b["status"] != "completed": pr_refuse(a, az, f"latest run on {src} is {st} (run {b['id']})", f"ado.py run-wait {b['id']}.")
+        pr_refuse(a, az, f"latest run {b['id']} on {src} is {st}", f"ado.py run-log {b['id']}, find the cause, fix it on the branch (a new push starts a new run); at most two runs per branch.")
     if a.strategy not in STRATEGIES: die("strategy must be one of " + ", ".join(sorted(STRATEGIES)))
     body = {"status": "completed", "lastMergeSourceCommit": {"commitId": commit},
             "completionOptions": {"mergeStrategy": a.strategy, "deleteSourceBranch": True, "mergeCommitMessage": f"Merged PR {a.id}: {p['title']}"}}
@@ -301,7 +405,8 @@ def cmd_pr_complete(a, az):
         time.sleep(3); p = pr_get(az, rid, a.id)
         if p["status"] == "completed": break
     if p["status"] != "completed":
-        die(f"pull request {a.id} is still {p['status']} (merge {p.get('mergeStatus')}): a branch policy may need another strategy (try --strategy squash) or the merge has conflicts", 1)
+        pr_refuse(a, az, f"pull request {a.id} is still {p['status']} (merge {p.get('mergeStatus')})", f"ado.py pr-complete {a.repo} {a.id} --strategy squash once (a branch policy may need another strategy); if it fails again the merge has conflicts: ask a person.")
+    refusal_counter(az, a.repo, a.id, bump=False)
     mc = (p.get("lastMergeCommit") or {}).get("commitId", "")
     emit(a, {"id": a.id, "status": "completed", "merge_commit": mc, "run": b["id"]}, [f"pull request {a.id} completed ({a.strategy}) on {short(p['targetRefName'])}, merge commit {mc[:8]}, gated by run {b['id']} ({st})"])
 
@@ -310,9 +415,10 @@ def cmd_pr_complete(a, az):
 SEMVER = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)$")
 def vkey(v): return tuple(int(x) for x in SEMVER.match(v).groups())
 
-def cmd_detect(a, az_factory):
+def detect_dir(dirname, az_factory=None):
+    """The detect check on a directory; az_factory=None skips the lookup of the newest release."""
     files = []
-    for root, dirs, names in os.walk(a.dir):
+    for root, dirs, names in os.walk(dirname):
         dirs[:] = [d for d in dirs if d not in (".git", "node_modules")]
         for n in names:
             if n.endswith((".yml", ".yaml")): files.append(os.path.join(root, n))
@@ -327,15 +433,15 @@ def cmd_detect(a, az_factory):
             if m.group(3) and m.group(3) in alias: mode, where, ref_of = "template", f, alias[m.group(3)]
             elif not m.group(3) and mode is None: mode, where = "copy", f
         if re.search(r"(?i)task:\s*Veracode@|pipeline-scan\.jar|veracode\s+(static|scan)\b|vosp-api-wrappers|srcclr", code) and not f.endswith("veracode-steps.yml"):
-            foreign.append(os.path.relpath(f, a.dir))
+            foreign.append(os.path.relpath(f, dirname))
     latest = None
     try:
-        az = az_factory()
+        az = az_factory()  # None: no lookup
         t = az.get(f"/_apis/git/repositories/{TEMPLATE_REPO}")
         tags = [short(x["name"]) for x in az.get(f"/_apis/git/repositories/{t['id']}/refs?filter=tags/").get("value", [])]
         tags = [x for x in tags if SEMVER.match(x)]; latest = max(tags, key=vkey) if tags else None
-    except SystemExit: pass
-    rel = os.path.relpath(where, a.dir) if where else None
+    except (SystemExit, TypeError): pass
+    rel = os.path.relpath(where, dirname) if where else None
     if mode == "template":
         ver = short(ref_of)
         if not SEMVER.match(ver): verdict, why = "upgrade", f"template pinned to {ref_of!r}, not an exact tag: pin it to a release tag"
@@ -344,7 +450,10 @@ def cmd_detect(a, az_factory):
     elif mode == "copy": verdict, why = "upgrade", f"in-repo copy called from {rel}: replace it by the shared template at {latest or 'its newest release'}, or leave it if the shared repository is out of reach"
     else:
         verdict, why = "not onboarded", "no call of veracode-steps.yml found" + (f"; other Veracode usage in: {', '.join(foreign)} (read it before adding anything)" if foreign else "")
-    d = {"verdict": verdict, "mode": mode or "none", "file": rel, "version": short(ref_of) if mode == "template" else None, "latest": latest, "foreign_veracode_usage": foreign, "detail": why}
+    return {"verdict": verdict, "mode": mode or "none", "file": rel, "version": short(ref_of) if mode == "template" else None, "latest": latest, "foreign_veracode_usage": foreign, "detail": why}
+
+def cmd_detect(a, az_factory):
+    d = detect_dir(a.dir, az_factory); rel, verdict, why, latest = d["file"], d["verdict"], d["detail"], d["latest"]
     emit(a, d, [f"mode: {d['mode']}" + (f" ({rel})" if rel else ""), f"version: {d['version']}  newest release: {latest}", verdict, "  " + why])
 
 
@@ -369,14 +478,15 @@ def main():
         for x in pos: p.add_argument(x)
         for o, kw in opts: p.add_argument(o, **kw)
         return p
-    add("discover", cmd_discover, "repo"); add("clone", cmd_clone, "repo", "dir"); add("push", cmd_push, "dir", "branch")
+    add("discover", cmd_discover, "repo"); add("clone", cmd_clone, "repo", "dir")
+    add("push", cmd_push, "dir", "branch", opts=[("--allow-no-veracode", {"action": "store_true", "help": "push although detect says not onboarded (the branch has no Veracode template reference); only for the rare legitimate case"})])
     add("validate", cmd_validate, "repo", "pipeline", "branch", opts=[("--file", {})])
     add("detect", cmd_detect, "dir")
     add("pr-create", cmd_pr_create, "repo", "source", "target", opts=[("--title", {"required": True}), ("--description-file", {"required": True})])
     add("pr-status", cmd_pr_status, "repo", "id", opts=[]); add("pr-complete", cmd_pr_complete, "repo", "id", opts=[("--strategy", {"default": "noFastForward"})])
     add("run", cmd_run, "repo", "pipeline", "branch")
     add("runs", cmd_runs, "repo", opts=[("--branch", {}), ("--top", {"type": int, "default": 10})])
-    p = add("run-wait", cmd_run_wait, "id", opts=[("--timeout", {"type": int, "default": 3600})])
+    p = add("run-wait", cmd_run_wait, "id", opts=[("--timeout", {"type": int, "default": 0, "help": "optional cap in seconds; default: wait until the run is final"}), ("--interval", {"type": int, "default": 30, "help": "seconds between polls"})])
     add("run-log", cmd_run_log, "id", opts=[("--step", {}), ("--lines", {"type": int, "default": 80})])
     add("artifact", cmd_artifact, "id", "name", "dir")
     add("profile", cmd_profile, "name", opts=[("--create", {"action": "store_true"})])

@@ -114,4 +114,73 @@ try:
         except Exception as e: ok = False
         check(f"YAML block {i} parses", ok)
 except ImportError: pass
+# ---- ado.py behaviour, offline (fake service object, fake directory): run-wait reasons, pr-complete refusals, push refusal
+import contextlib, importlib.util, io, subprocess, sys, tempfile
+if os.path.isfile(ado):
+    spec = importlib.util.spec_from_file_location("ado_under_test", ado); mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+    tmp = tempfile.mkdtemp(); tempfile.tempdir = tmp   # the refusal counter file lives in the temp dir
+    class Fake:
+        org, project = "o", "p"
+        def __init__(self, routes): self.routes = routes
+        def get(self, path, **kw):
+            for k, v in self.routes.items():
+                if k in path: return v() if callable(v) else v
+            raise AssertionError("unexpected call " + path)
+        repo = lambda self, n: {"id": "rid", "name": n}
+        def call(self, *a, **kw): raise AssertionError("must not write")
+    def run(fn, *args):
+        out = io.StringIO(); code = None
+        with contextlib.redirect_stdout(out):
+            try: fn(*args)
+            except SystemExit as e: code = e.code
+        return code, out.getvalue()
+    NS = lambda **k: type("NS", (), k)()
+    # item 4: pr-complete refuses with the next command, STOP on the 3rd refusal in a row
+    pr = {"status": "active", "sourceRefName": "refs/heads/veracode/x", "title": "t", "lastMergeSourceCommit": {"commitId": "c" * 40}}
+    az = Fake({"pullrequests/7": pr, "builds?": {"value": [{"id": 123, "status": "inProgress", "sourceVersion": "c" * 40}]}})
+    a = NS(repo="r", id=7, strategy="noFastForward", json=False)
+    outs = [run(mod.cmd_pr_complete, a, az) for _ in range(3)]
+    check("pr-complete refusal prints REFUSED with the exact next command", outs[0][0] == 1 and "REFUSED: latest run on veracode/x is inProgress (run 123). Next: ado.py run-wait 123." in outs[0][1] and "Do not call pr-complete again" in outs[0][1], outs[0][1])
+    check("pr-complete prints STOP only from the 3rd refusal in a row", "STOP" not in outs[0][1] + outs[1][1] and "STOP: you are repeating a refused call." in outs[2][1], str([o[1][-60:] for o in outs]))
+    # item 5: push refuses a branch without a Veracode reference; the override exists only in --help
+    d = tempfile.mkdtemp(); os.makedirs(d + "/.git")
+    open(d + "/azure-pipelines.yml", "w").write("trigger: [main]\nsteps:\n  - script: echo hi\n")
+    env = dict(os.environ, AZURE_DEVOPS_ORG="testorg", AZURE_DEVOPS_PAT="dummy-test-value")
+    sh = lambda *x: subprocess.run([sys.executable, ado] + list(x), capture_output=True, text=True, env=env)
+    r = sh("push", d, "veracode/x")
+    check("push refuses a directory with no Veracode template reference", r.returncode == 1 and "REFUSED: this branch contains no Veracode template reference. Make the CI change first (playbook/05-ci-change-azure.md), validate it, then push." in r.stdout, r.stdout + r.stderr)
+    r = sh("push", d, "veracode/x", "--allow-no-veracode")
+    check("--allow-no-veracode gets past the Veracode check", "REFUSED" not in r.stdout, r.stdout)
+    open(d + "/azure-pipelines.yml", "a").write("resources:\n  repositories:\n    - repository: veracode\n      name: veracode-pipelines\n      ref: refs/tags/v1.0.0\n  - template: veracode-steps.yml@veracode\n")
+    open(d + "/azure-pipelines.yml", "w").write("resources:\n  repositories:\n    - repository: veracode\n      type: git\n      name: veracode-pipelines\n      ref: refs/tags/v1.0.0\nsteps:\n  - template: veracode-steps.yml@veracode\n")
+    r = sh("push", d, "veracode/x")
+    check("push does not refuse a directory that calls the template", "REFUSED" not in r.stdout, r.stdout)
+    check("--allow-no-veracode is documented in --help only", "--allow-no-veracode" in sh("push", "--help").stdout
+          and not any("allow-no-veracode" in t for t in text.values()))
+    # item 2: run-wait says why a run waits, and lists Veracode steps at the end
+    rec = lambda **k: dict({"id": "r", "type": "Task", "name": "x", "order": 1}, **k)
+    b = {"id": 5, "status": "notStarted", "queueTime": "2026-01-01T00:00:00.1234567Z"}
+    kind, why = mod.wait_reason(Fake({"pools": {"value": []}}), b, [rec(id="j", type="Job", state="pending")])
+    check("run-wait names a run that waits for the agent", kind == "agent" and why == "waiting for an agent", why)
+    class Pools(Fake):
+        def get(self, path, **kw):
+            if "jobrequests" in path: return {"value": [{"queueTime": "2026-01-01T00:00:00Z", "owner": {"id": 9}}, {"queueTime": "2026-01-01T00:01:00Z", "owner": {"id": 5}}, {"queueTime": "2026-01-01T00:02:00Z", "owner": {"id": 8}}]}
+            return {"value": [{"id": 1, "name": "Default"}]}
+    check("run-wait counts the jobs ahead in the pool", mod.wait_reason(Pools({}), b, [])[1] == "waiting for an agent (1 jobs ahead in pool Default)", mod.wait_reason(Pools({}), b, [])[1])
+    gate = [rec(id="c", type="Checkpoint.Authorization", state="inProgress", name="Checkpoint.Authorization", parentId="s", issues=[{"type": "warning", "message": "Pipeline needs permission to access repository veracode-pipelines"}]), rec(id="s", type="Stage", name="veracode")]
+    kind, why = mod.wait_reason(Fake({}), b, gate)
+    check("run-wait names a permission gate with resource type and name", kind == "permission" and why == "WAITING FOR PERMISSION: repository veracode-pipelines: a person must click Permit on the run page", why)
+    gate[0]["state"] = "completed"
+    check("a completed Checkpoint.Authorization is not a gate", mod.wait_reason(Pools({}), b, gate)[0] == "agent")
+    steps = mod.veracode_steps([rec(id="a", parentId="j", order=1, name="Veracode: take the packaged jar", result="succeededWithIssues", issues=[{"type": "error", "message": "cp failed"}]),
+                                rec(id="b", parentId="j", order=2, name="Veracode: Pipeline Scan", result="skipped"), rec(id="c", parentId="j", order=3, name="Checkout x@veracode/y", result="succeeded"),
+                                rec(id="d", parentId="k", order=4, name="Veracode: policy or sandbox scan", result="skipped"), rec(id="e", parentId="k", order=5, name="Veracode: package", result="succeeded")])
+    check("VERACODE STEPS: ran / warning / skipped after a failure / skipped by placement", [t for _, t in steps] == ["warning: cp failed", "skipped after a failure", "skipped by placement", "ran"], str(steps))
+    tl = {"records": [{"id": "j", "type": "Job", "name": "veracode", "result": "succeededWithIssues", "order": 1}, {"id": "a", "parentId": "j", "type": "Task", "order": 2, "name": "Veracode: Pipeline Scan", "result": "succeededWithIssues", "issues": [{"type": "warning", "message": "no results.json"}]}]}
+    calls = []
+    def builds():
+        calls.append(1); return {"id": 5, "status": "inProgress" if len(calls) < 3 else "completed", "result": "partiallySucceeded", "sourceBranch": "refs/heads/b", "queueTime": "2026-01-01T00:00:00Z", "definition": {"name": "d"}}
+    mod.time.sleep = lambda s: None
+    code, out = run(mod.cmd_run_wait, NS(id=5, timeout=0, interval=0, json=False), Fake({"timeline": tl, "builds/5": builds, "distributedtask/pools": {"value": []}}))
+    check("run-wait loops until final by default, prints elapsed minutes and a VERACODE STEPS list", code == 0 and len(calls) == 3 and "min] run 5 inProgress: waiting for an agent" in out and "VERACODE STEPS:\n  Veracode: Pipeline Scan: warning: no results.json" in out, out)
 done()

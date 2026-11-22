@@ -56,7 +56,8 @@ Azure concepts and facts: `reference/facts/azure-devops.md`. Read it once before
 
 ## Stop and ask a person (never work around)
 
-A run "waiting for permission" (a person must click Permit); variable group `veracode` missing or not
+A queued or running run is NOT a reason to stop: wait with `ado.py run-wait` (waits of 10 to 30 minutes are normal).
+A run "waiting for permission" (a person must click Permit; `run-wait` prints `WAITING FOR PERMISSION`); variable group `veracode` missing or not
 usable; `veracode-pipelines` in another project or unreadable or without a tag; a pipeline using
 `extends:`; a top-level `container:` in a steps-only file; a steps-only file whose root `variables:` is a
 mapping; the only agent without java, python3, curl or jq; no `AZURE_DEVOPS_PAT`. Say what you saw and what a person must do. Do not

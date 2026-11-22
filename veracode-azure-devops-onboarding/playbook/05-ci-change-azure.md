@@ -17,7 +17,7 @@ under `work/`. The diff is additions only: `git diff --numstat` must show 0 dele
 5. Profile (agent-side): `python3 tools/ado.py profile <name>`; if absent and the plan says create it:
    `python3 tools/ado.py profile <name> --create` (`profile` was not run in the lab build; if it fails, stop and ask for the profile). Exact-name match. Never for a language without static support.
 6. Commit and push: `git -C work/<repo> add -A`, `git -C work/<repo> commit -m "Add Veracode security scanning (audit stage)"`,
-   `python3 tools/ado.py push work/<repo> veracode/onboarding-<branch>`.
+   `python3 tools/ado.py push work/<repo> veracode/onboarding-<branch>` (it refuses a directory with no Veracode template reference: make and validate the change first) [ADO-32].
 7. Pull request:
    `python3 tools/ado.py pr-create <repo> veracode/onboarding-<branch> <target branch> --title "Add Veracode security scanning (audit stage)" --description-file <file>`.
    The description file (you write it) holds: rung and template tag, stage `audit`, the placement table, the profile and its policy,
@@ -32,7 +32,7 @@ under `work/`. The diff is additions only: `git diff --numstat` must show 0 dele
 9. Do not complete the pull request unless the person said you may. If they did:
    `python3 tools/ado.py pr-complete <repo> <pr id>` (merge strategy `noFastForward`, which works under a "Require a
    merge strategy" policy; add `--strategy squash` if the policy demands it). It refuses unless the latest run is on the
-   PR's source commit and succeeded or partiallySucceeded. The merge starts a run on the target branch: **that run is
+   PR's source commit and succeeded or partiallySucceeded. When it prints `REFUSED: ... Next: ...`, do exactly the `Next:` command; a repeated refused call prints `STOP` [ADO-32]. The merge starts a run on the target branch: **that run is
    where the policy or sandbox scan happens** (read it, playbook 06). Only one scan may be open per profile: wait until
    that run is done before completing the next pull request or starting any other run that scans.
 
@@ -122,17 +122,29 @@ Append this job at the end of the `jobs:` list, same indent as the other `- job:
 ```
 
 No `container:` on this job. If the deployable is a build output of another job (Java jar), add
-`dependsOn: <that job's name>` under `- job: veracode` and replace the package script by the two steps below
+`dependsOn: <that job's name>` under `- job: veracode` and replace the package script by the steps below
 (proven in the lab with a jar the team's `package` stage publishes [ADO-25]). `<artifact name>` is the name in the team's
-`publish:` step; the jar then lands in `$(Pipeline.Workspace)/<artifact name>`. Pass `package:` to the template:
+`publish:` step; the jar then lands in `$(Pipeline.Workspace)/<artifact name>`. The self-hosted agent REUSES its
+workspace between runs, so a jar of an older run (another branch, another version) may already be there: the first step
+empties the folder, the third requires exactly one jar and says so loudly [ADO-28]. Never use a bare `cp ...*.jar`. Pass `package:` to the template:
 
 ```yaml
+      - bash: rm -rf "$(Pipeline.Workspace)/<artifact name>"
+        displayName: 'Veracode: empty the jar download folder'
       - download: current
         artifact: <artifact name>
       - bash: |
           set -euo pipefail
+          dir="$(Pipeline.Workspace)/<artifact name>"
+          echo "jars in $dir:"; ls -l "$dir"
+          n=$(find "$dir" -maxdepth 1 -type f -name '<jar file name or pattern>' | wc -l)
+          if [ "$n" -ne 1 ]; then
+            echo "##vso[task.logissue type=error]VERACODE PACKAGE ERROR: expected exactly 1 jar in $dir, found $n. Pipeline Scan will NOT run."
+            exit 1
+          fi
           mkdir -p "$(Build.ArtifactStagingDirectory)/veracode"
-          cp "$(Pipeline.Workspace)"/<artifact name>/<jar file name or pattern> "$(Build.ArtifactStagingDirectory)/veracode/<stable name>.jar"
+          cp "$dir"/<jar file name or pattern> "$(Build.ArtifactStagingDirectory)/veracode/<stable name>.jar"
+          ls -l "$(Build.ArtifactStagingDirectory)/veracode"
         displayName: 'Veracode: take the packaged jar'
         continueOnError: true
       - template: veracode-steps.yml@veracode

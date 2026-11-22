@@ -28,7 +28,12 @@
 | ADO-24 | lab | 2026-11-21 | `shared/playbook/00-integration-ladder-azure.md`, `shared/playbook/03-scan-placement-azure.md`, `shared/reference/facts/azure-devops.md` |
 | ADO-25 | lab | 2026-11-21 | `shared/playbook/00-integration-ladder-azure.md`, `shared/playbook/03-scan-placement-azure.md`, `shared/playbook/05-ci-change-azure.md`, `shared/reference/facts/azure-devops.md` |
 | ADO-26 | lab | 2026-11-21 | `shared/playbook/05-ci-change-azure.md`, `shared/reference/facts/azure-devops.md` |
-| ADO-27 | lab | 2026-11-21 | `shared/reference/facts/azure-devops.md` |
+| ADO-27 | lab | 2026-11-21 | `shared/playbook/03-scan-placement-azure.md`, `shared/reference/facts/azure-devops.md` |
+| ADO-28 | lab | 2026-11-21 | `shared/playbook/05-ci-change-azure.md`, `shared/playbook/06-verification-azure.md`, `shared/reference/facts/azure-devops.md`, `shared/reference/troubleshooting.md`, `shared/templates/azure/README.md` |
+| ADO-29 | lab | 2026-11-21 | `shared/playbook/06-verification-azure.md`, `shared/reference/facts/azure-devops.md`, `shared/reference/troubleshooting.md`, `veracode-azure-devops-onboarding/AGENTS.md` |
+| ADO-30 | lab | 2026-11-21 | `shared/reference/troubleshooting.md`, `shared/templates/azure/README.md` |
+| ADO-31 | lab | 2026-11-21 | `shared/playbook/04-packaging.md`, `shared/reference/troubleshooting.md` |
+| ADO-32 | lab | 2026-11-21 | `shared/playbook/05-ci-change-azure.md` |
 | API-01 | lab | 2026-11-11 | `shared/reference/facts/rest-api.md` |
 | API-02 | lab | 2026-11-11 | `shared/reference/facts/rest-api.md` |
 | API-03 | lab | 2026-11-11 | `shared/reference/facts/rest-api.md` |

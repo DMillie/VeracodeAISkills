@@ -37,6 +37,12 @@ fixing findings, changing project settings or policies, creating the template re
 11. **Branch protection.** Any branch policy means pull request only. Push only `veracode/...` branches
     (`ado.py push` refuses others, never forces). Open the pull request; complete it only if the person said so.
 12. **Say what is proven, read, and untested** (SKILL.md, last section).
+13. **Queued is not blocked.** A run that is `notStarted` or `inProgress` is normally waiting for the single agent
+    (10 to 30 minutes is normal). Waiting is part of the job: keep calling `ado.py run-wait <id>`. Never stop or hand
+    back while a run you need is not final. The ONLY reason to ask a person is a permission gate (`run-wait` prints
+    `WAITING FOR PERMISSION`). [ADO-29]
+14. **Honest progress.** Never write "completed", "succeeded" or "created" in a note or report unless the tool output you
+    just read says so. Quote the id and the state from the tool (for example "run 123: succeeded").
 
 ## Workflow
 
