@@ -61,6 +61,11 @@ level), the `veracode` job with `variables: - group: veracode`, `- checkout: sel
 `head` closes the pipe: the zip is fine, the step shows failed. Do not pipe listings into `head` under pipefail (use
 `sed -n 1,3p`, or drop pipefail for that line). [ADO-30]
 
+**Gotcha: `docker run` in a packaging step.** When the agent's Docker daemon is not the agent's own machine (a sidecar or
+remote daemon, as in the lab), the daemon sees only the agent's work folder. Keep every folder you mount into a container
+under `$(Build.SourcesDirectory)`, `$(Build.ArtifactStagingDirectory)` or `$(Agent.TempDirectory)`; a mount of `/tmp/...` is empty inside
+the container and the package comes out empty (22-byte zip, Pipeline Scan says "No files found"). [ADO-33]
+
 **Gotcha: jars on a reused workspace.** Empty the download folder and require exactly one jar (`examples/git-flow-java.after.yml`). [ADO-28]
 
 Always run `ado.py validate <repo> <pipeline> <branch> --file <the new file>` before pushing: it must print the

@@ -34,6 +34,7 @@
 | ADO-30 | lab | 2026-11-21 | `shared/reference/troubleshooting.md`, `shared/templates/azure/README.md` |
 | ADO-31 | lab | 2026-11-21 | `shared/playbook/04-packaging.md`, `shared/reference/troubleshooting.md` |
 | ADO-32 | lab | 2026-11-21 | `shared/playbook/05-ci-change-azure.md` |
+| ADO-33 | lab | 2026-11-21 | `shared/templates/azure/README.md` |
 | API-01 | lab | 2026-11-11 | `shared/reference/facts/rest-api.md` |
 | API-02 | lab | 2026-11-11 | `shared/reference/facts/rest-api.md` |
 | API-03 | lab | 2026-11-11 | `shared/reference/facts/rest-api.md` |
