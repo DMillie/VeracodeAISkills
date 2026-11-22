@@ -193,9 +193,28 @@ def cmd_validate(a, az):
         m = re.match(r"^(\s*)-?\s*(stage|job|deployment|displayName):\s*(.*)$", line)
         if m and (m.group(2) != "displayName" or True): names.append((len(m.group(1)), m.group(2), m.group(3).strip("'\"")))
     steps = [n for n in names]
-    if a.json: print(json.dumps({"ok": True, "pipeline_id": pid, "names": [f"{k}: {v}" for _, k, v in steps]}, indent=2)); return
+    bad = container_jobs(final)
+    warn = [f"WARNING: job {j!r} runs the Veracode steps inside a container. The template needs the AGENT's tools (java, python3, jq, curl), "
+            "which a build image usually lacks: the steps would fail with exit 127. Next: remove `container:` from that job "
+            "(build in another job and hand the output over as a pipeline artifact, or use `docker run` with a pinned image)." for j in bad]
+    if a.json: print(json.dumps({"ok": True, "pipeline_id": pid, "names": [f"{k}: {v}" for _, k, v in steps], "warnings": warn}, indent=2)); return
     print(f"OK: pipeline {a.pipeline!r} (id {pid}) expands on {a.branch}")
     for ind, k, v in steps: print(("  " if k in ("stage", "job", "deployment") else "    ") + f"{k}: {v}")
+    for w in warn: print(w)
+
+def container_jobs(final):
+    """Names of jobs in an expanded pipeline YAML that have both a `container:` key and a step whose displayName starts 'Veracode:'."""
+    blocks, cur = [], ["(pipeline)", []]
+    for line in final.splitlines():
+        m = re.match(r"^\s*-\s*(job|deployment):\s*(\S+)", line)
+        if m: blocks.append(cur); cur = [m.group(2), []]
+        cur[1].append(line)
+    blocks.append(cur)
+    out = []
+    for name, lines in blocks:
+        t = "\n".join(lines)
+        if re.search(r"displayName:\s*['\"]?Veracode:", t) and re.search(r"(?m)^\s*container:", t) and not re.search(r"(?m)^\s*container:\s*['\"]?none", t): out.append(name)
+    return out
 
 def build_by_id(az, bid): return az.get(f"/_apis/build/builds/{bid}")
 
