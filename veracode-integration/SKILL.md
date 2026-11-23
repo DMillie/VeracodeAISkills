@@ -49,7 +49,7 @@ accordingly. **Say which mode you are in when it affects the answer.**
 on a real tenant. `~` means it was read (a docs page, a spec, library source), not run.
 `?` or *unverified* or no ID means do not assert it. Dates and sources are in the evidence
 register of the source repository (`evidence/register/INT.md`), not in this skill. The facts
-here were checked between 2026-09-15 and 2026-10-09.
+here were checked between 2026-09-15 and 2026-10-09, except `[INT-87]` to `[INT-96]`, observed 2026-11-20 to 2026-11-23.
 
 **If you can reach the network**, the KB is your starting point, not your
 authority. Verify against the live source before shipping anything in these
@@ -116,8 +116,11 @@ comments wherever they apply; do not assume the user will read prose.
    above" you must use `severity_gte=4`. The single most damaging error in this API.
 
 2. **There is no top-level `severity` on a finding.** It lives at
-   `finding_details.severity` — an **integer** for STATIC, a **string** for SCA.
-   Do not compare them with the same operator.
+   `finding_details.severity` — an **integer** for STATIC. For SCA the docs and
+   spec say **string**, but one tenant returned an **integer 2–5** there on all
+   1,082 SCA findings, with the string at `cve.severity` [INT-87]. Accept both
+   (int, or map the word); never compare it with the same operator without
+   checking the type.
 
 3. **Scale:** `5` Very High · `4` High · `3` Medium · `2` Low · `1` Very Low ·
    `0` Informational. Never send the word `HIGH` to a REST endpoint.

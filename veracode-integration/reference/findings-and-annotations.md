@@ -1,7 +1,7 @@
 # Applications, Sandboxes, Findings and Annotations
 
 **Traps in this file:** `severity` is exact-match (use `severity_gte`) ·
-severity lives at `finding_details.severity`, int for STATIC and string for SCA ·
+severity lives at `finding_details.severity`, int for STATIC, string *or* int for SCA ·
 closed findings are returned by default · `include_annot=TRUE` is what makes a
 ticket sync idempotent · app `name` search is a partial match · an empty
 collection has no `_embedded` key at all · findings cannot be filtered to a build
@@ -45,6 +45,14 @@ its teams can see. A short list that *looks* complete is the usual symptom — s
 Other documented operations (`GET /{guid}`, `POST`, `PUT`, `DELETE`) exist;
 request bodies for profile creation are **unverified** here — check the
 Applications spec.
+
+Attaching a team to a profile worked as a **full-profile `PUT`**: read the
+profile, append `{"guid": <team_id>}` to `profile.teams`, write the whole
+`profile` back [INT-95]. A `PUT` replaces; sending only `teams` is not tried.
+
+**No Platform link.** This skill gives no URL pattern for a profile or a flaw in
+the Platform UI, so a tool built from it cannot deep-link to the review screen.
+Do not invent one.
 
 ## Sandboxes [INT-30~]
 
@@ -144,7 +152,9 @@ response from any collection endpoint you have not used before.
 `file_name`, `file_line_number`, `module`, `procedure`, `relative_location`,
 `exploitability`, `attack_vector`, `cvss`, `finding_category.{id,name}`
 
-**SCA** — `severity` (**string**), `cve.{name,cvss,severity,href}`, `cwe`,
+**SCA** — `severity` (**string** per the spec; one tenant returned an **int 2–5**
+here and the string at `cve.severity` [INT-87] — accept both),
+`cve.{name,cvss,severity,href}`, `cwe`,
 `component_filename`, `component_id`, `component_path[]`, `product_id`,
 `version`, `language`, `licenses[]`, `metadata`
 
@@ -212,11 +222,42 @@ parameter name is **unverified**.
 findings, or confirm against the Annotations spec before shipping a
 sandbox-scoped sync.
 
+**A proposal does not stay in the scope it was made in** [INT-90]. On one tenant
+a proposal made at Policy scope showed up on the same `issue_id` in **every
+sandbox** of the application, with the identical annotation and timestamp (seen
+on 3 profiles). So the same request appears in each context you read. Read
+every context if you must, but collapse requests on `(application, issue_id,
+annotation created)` — a triage list that follows invariant 12 literally still
+shows one request two or three times (37 rows for 27 requests on the first
+refresh). This does not settle the wire parameter above: it was not tried with a
+sandbox-scoped POST.
+
 ### Undocumented limits
 
-Comment maximum length, maximum `issue_list` size per call, success status code
-and response body are all **undocumented**. Chunk conservatively (~50 IDs), keep
-comments short, and do not assert a limit you cannot cite.
+Comment maximum length and maximum `issue_list` size per call are
+**undocumented**. A successful POST returned HTTP 200 with a body holding
+`findings` and `_links` [INT-92] (what is inside `findings[]` was not recorded).
+Chunk conservatively (~50 IDs), keep comments short, and do not assert a limit you cannot cite.
+
+### Structured mitigation fields — not covered
+
+Existing annotations read back `technique`, `specifics`, `remaining_risk` and
+`verification` (above), but this skill does not know how to **send** them on a
+POST: the body above has only `issue_list`, `comment`, `action`. Proposals made
+with a comment only were accepted and read back as `PROPOSED` [INT-92], yet the
+Platform UI asks for all four. Check the Annotations spec before building a tool
+that must fill them.
+
+### Finding only the proposed ones
+
+The skill's filter table has no `resolution_status` filter, and whether the API
+has one is **not verified**. What worked: pull each context with
+`include_annot=TRUE` and keep `finding_status.resolution_status` in
+`PROPOSED` / `APPROVED` / `REJECTED` locally [INT-91] (35 applications, about
+10 seconds, 5 parallel workers). Whether that holds on a tenant with thousands of
+findings is untested; the Reporting API route (`reporting.md`) was not tried.
+For approvers, "who may approve" (Mitigation Approver) has no verified recipe, see
+`identity.md`.
 
 ### Idempotency — the thing that makes a sync real
 

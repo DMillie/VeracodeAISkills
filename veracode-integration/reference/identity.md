@@ -29,6 +29,26 @@ revokes the old pair 24 hours later · OAuth clients cannot be created by an adm
 | `PUT` | `/users/{user_id}` | Query: `partial=true` to patch instead of replace |
 | `DELETE` | `/users/{user_id}` | |
 
+**A user who has not activated yet is invisible to the lookups.** After `POST /users`
+two new human users (`active: false`) were returned by none of `GET /users`,
+`?email_address=`, `?user_name=` or `/users/search`; they did appear as members in
+`GET /teams/{id}` [INT-93]. A "look up by e-mail, create if missing" step
+therefore creates duplicates on the second run. Also check the membership of the
+teams you own (`GET /teams/{id}` → `users[]`) before creating.
+
+**Creating a human user.** The `roles` entry that worked was
+`[{"role_name": "extreviewer"}]`, which the UI shows as "Reviewer" [INT-94]; the
+API role table in `auth-and-access.md` lists display names only for API roles,
+and the `role_name` of other human roles is not captured here (read `GET /roles`).
+Activation is by e-mail to the address given; an address with no mailbox leaves
+the account inactive (and, per above, hard to find).
+
+**The list record is short.** `GET /users` returned name, user name, e-mail and
+flags, with **no roles** [INT-96]. "Who is allowed to approve mitigations"
+(Mitigation Approver) therefore needs a `GET /users/{user_id}` per user or
+`GET /users/by_role/{role_id}`; neither was tried as a recipe here, so it is
+unverified.
+
 `GET /users/self` is the best smoke test for a new credential: it needs no admin
 role, so a failure there is authentication, and a success followed by a `403`
 elsewhere is authorization.

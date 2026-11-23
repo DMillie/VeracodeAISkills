@@ -162,6 +162,16 @@
 | INT-84 | docs | 2026-09-15 | `veracode-integration/reference/sca-and-dast.md` |
 | INT-85 | docs | 2026-09-15 | `veracode-integration/reference/sca-and-dast.md` |
 | INT-86 | lab | 2026-09-15 | - |
+| INT-87 | lab | 2026-11-21 | `veracode-integration/SKILL.md`, `veracode-integration/reference/findings-and-annotations.md`, `veracode-integration/reference/recipes.md`, `veracode-integration/reference/sca-and-dast.md` |
+| INT-88 | lab | 2026-11-23 | `veracode-integration/reference/sca-and-dast.md` |
+| INT-89 | lab | 2026-11-23 | `veracode-integration/reference/sca-and-dast.md` |
+| INT-90 | lab | 2026-11-20 | `veracode-integration/reference/findings-and-annotations.md` |
+| INT-91 | lab | 2026-11-20 | `veracode-integration/reference/findings-and-annotations.md` |
+| INT-92 | lab | 2026-11-20 | `veracode-integration/reference/findings-and-annotations.md` |
+| INT-93 | lab | 2026-11-21 | `veracode-integration/reference/identity.md` |
+| INT-94 | lab | 2026-11-21 | `veracode-integration/reference/identity.md` |
+| INT-95 | lab | 2026-11-21 | `veracode-integration/reference/findings-and-annotations.md` |
+| INT-96 | lab | 2026-11-20 | `veracode-integration/SKILL.md`, `veracode-integration/reference/identity.md` |
 | LAY-01 | lab | 2026-11-12 | `shared/reference/facts/integration-layout.md` |
 | LAY-02 | lab | 2026-11-12 | `shared/reference/facts/integration-layout.md` |
 | LAY-03 | lab | 2026-11-12 | `shared/reference/facts/integration-layout.md` |
