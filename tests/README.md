@@ -40,9 +40,3 @@ is the signal worth reading.
 - Static: `tests/static/test_azure.py` (part of the static tier) checks the skill layout and front matter, that every file the Azure documents name exists, that every `ado.py` subcommand they mention is one the tool defines, that the decisive rules are present (additions only, one pull request per long-lived branch, never a branch ref, lint limits, unconfirmed extension finding, untested list), and that the YAML the playbook tells an agent to add is pinned, has no credentials and no container.
 - Routing: `behaviour/routing.json` has Azure asks that must pick `veracode-azure-devops-onboarding` and GitLab asks that must not (`must_not`).
 - Not covered by the static tier: any run against Azure DevOps. One lab run exists (`evidence/register/ADO.md`); the skill as an installed skill has not been run.
-
-## Bitbucket
-
-- Static: `tests/static/test_bitbucket.py` (part of the static tier) checks the draft pipeline's structure, pins, credentials handling and that it cannot start two pipelines for one pull request.
-- Local steps: `tests/bitbucket/run.sh <example.yml> <source dir> <work dir> [expected findings]` runs the package, scan and report step scripts in their pinned images. Needs docker and Veracode credentials in the environment; uses one Pipeline Scan.
-- Not covered: anything on Bitbucket itself. No pipeline has run there.

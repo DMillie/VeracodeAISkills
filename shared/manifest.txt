@@ -29,7 +29,6 @@ veracode-gitlab-component templates/gitlab/component
 veracode-gitlab-component templates/gitlab/examples
 veracode-gitlab-component tools/detect_integration.py
 veracode-gitlab-component tools/gitlab-ci-lint.sh
-veracode-repo-onboarding templates/bitbucket
 # Azure DevOps onboarding. Neutral playbooks 01, 03, 06 and the profile tool were moved into shared/ unchanged; the GitLab skill keeps its copies.
 veracode-repo-onboarding playbook/01-intake.md
 veracode-repo-onboarding playbook/03-scan-placement.md
