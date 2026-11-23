@@ -1,0 +1,54 @@
+# Example: trunk, TypeScript pnpm workspace built into one image (parcel-tracker shape). Policy scan once, on main.
+trigger:
+  branches:
+    include: ['*']
+
+pool: Default
+
+variables:
+  IMAGE: parcel-tracker
+  SHORT_SHA: $[substring(variables['Build.SourceVersion'], 0, 8)]
+
+stages:
+  # Install, type check, tests and bundling all happen inside the image build (see Dockerfile).
+  - stage: build
+    jobs:
+      - job: build_image
+        displayName: build-image
+        steps:
+          - script: |
+              set -e
+              # the pipeline's own token reads @platform/audit-log from the Azure Artifacts feed
+              docker build --secret id=npm_token,env=SYSTEM_ACCESSTOKEN -t "$IMAGE:$SHORT_SHA" .
+              docker rm -f smoke 2>/dev/null || true
+              docker run -d --name smoke "$IMAGE:$SHORT_SHA"
+              sleep 3
+              docker exec smoke wget -qO- http://127.0.0.1:8080/healthz
+              docker rm -f smoke
+              if [ -n "$CONTAINER_REGISTRY" ] && [ "$BUILD_SOURCEBRANCH" = "refs/heads/main" ]; then
+                echo "$CONTAINER_REGISTRY_PASSWORD" | docker login -u "$CONTAINER_REGISTRY_USER" --password-stdin "$CONTAINER_REGISTRY"
+                docker tag "$IMAGE:$SHORT_SHA" "$CONTAINER_REGISTRY/$IMAGE:$SHORT_SHA"
+                docker tag "$IMAGE:$SHORT_SHA" "$CONTAINER_REGISTRY/$IMAGE:latest"
+                docker push "$CONTAINER_REGISTRY/$IMAGE:$SHORT_SHA"
+                docker push "$CONTAINER_REGISTRY/$IMAGE:latest"
+              else
+                echo "Image built and smoke tested; not pushed (no registry configured or not the default branch)"
+              fi
+            displayName: docker build, smoke test, push
+            env:
+              SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+
+  - stage: deploy
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: deploy
+        environment: production
+        container: debian:12-slim
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - script: |
+                    echo "Rolling parcel-tracker $SHORT_SHA out to the depot cluster"
+                    echo "helm upgrade parcel-tracker charts/parcel-tracker --set image.tag=$SHORT_SHA"
+                  displayName: deploy

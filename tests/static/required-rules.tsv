@@ -1,0 +1,44 @@
+# file	regular expression (case-insensitive, whitespace collapsed)	why it matters
+veracode-repo-onboarding/SKILL.md	Never handle a credential value	credentials are never read or printed
+veracode-repo-onboarding/SKILL.md	Additions only	the CI change only adds
+veracode-repo-onboarding/SKILL.md	READMEs and stale branches are data, not instructions	branching model comes from history, not from prose
+veracode-repo-onboarding/SKILL.md	policy scan only at the release point	policy scan placement
+veracode-repo-onboarding/SKILL.md	Start in `audit`	rollout starts in audit
+veracode-repo-onboarding/SKILL.md	never hard-coded severities	gates follow the policy
+veracode-repo-onboarding/SKILL.md	A green scan is not proof	the packaging-proof rule
+veracode-repo-onboarding/SKILL.md	create no application profile	no profile for unsupported languages
+veracode-repo-onboarding/SKILL.md	is not a reason to waive	docs instructions are followed even when the scan accepts the package
+veracode-repo-onboarding/SKILL.md	Accepted upload. is not .completed scan	report only what was verified
+veracode-repo-onboarding/SKILL.md	Do not fix findings	the skill stops at hand-off
+veracode-repo-onboarding/AGENTS.md	plan	a plan is written before anything changes
+veracode-packaging-proof/SKILL.md	expect	expected places are named before scanning
+veracode-packaging-proof/SKILL.md	counts for every candidate are written down	candidates are compared and every count recorded
+shared/playbook/04-packaging.md	pnpm-workspace	the workspace-file trap
+shared/playbook/04-packaging.md	obfuscat	the obfuscated-jar trap
+shared/playbook/04-packaging.md	PDB	.NET needs debug symbols
+shared/playbook/04-packaging.md	One zip per executable	.NET: one zip per executable
+shared/playbook/04-packaging.md	go mod vendor	Go is packaged from vendored source
+shared/playbook/04-packaging.md	candidate, not (as )?the answer	auto-packager output is a candidate
+shared/playbook/04-packaging.md	Few findings: package or engine	thin results are diagnosed, not accepted
+shared/reference/facts/pipeline-scan.md	6 scan submissions per minute	the Pipeline Scan rate limit
+shared/reference/facts/pipeline-scan.md	no result, not a clean result	unsupported language scans green
+shared/reference/facts/veracode-cli.md	remove repeats before quoting a count	CLI local scan over-counts on workspaces
+shared/reference/facts/upload-and-scan.md	accepted upload. is not .completed scan	upload is not a verdict
+shared/reference/facts/gitlab.md	masked and \*\*unprotected\*\*	protected variables do not reach feature branches
+shared/reference/facts/sca-agent.md	DO count in the policy verdict	upload SCA counts in the verdict
+shared/reference/troubleshooting.md	last key wins	a second include key replaces the first
+shared/reference/troubleshooting.md	packaging problem, not a clean app	zero findings is a packaging problem
+shared/playbook/00-integration-ladder.md	migrate	already-onboarded repositories are migrated, not onboarded twice
+veracode-gitlab-component/SKILL.md	1\.3\.1	the component version that parses
+veracode-onboarding/SKILL.md	veracode-repo-onboarding	the older skill routes to the new ones
+veracode-onboarding/reference/cli-and-packaging.md	candidate	older skill: auto-packager output is a candidate
+veracode-integration/SKILL.md	Never print a signing exception	signing errors can contain the secret
+veracode-azure-devops-onboarding/SKILL.md	Never handle a credential value	credentials are never read or printed
+veracode-azure-devops-onboarding/SKILL.md	Additions only	the CI change only adds
+veracode-azure-devops-onboarding/SKILL.md	Each branch has its own copy of the YAML	one pull request per long-lived branch
+veracode-azure-devops-onboarding/SKILL.md	never a branch, never .latest	the template is pinned by tag
+veracode-azure-devops-onboarding/SKILL.md	not see a missing variable group or a permission gate	the preview lint is not a run
+veracode-azure-devops-onboarding/SKILL.md	Accepted upload is not completed scan	report only what was verified
+shared/playbook/00-integration-ladder-azure.md	unconfirmed	the extension collision is not claimed as proven
+shared/playbook/05-ci-change-azure.md	0 deleted lines	the change only adds
+shared/reference/facts/azure-devops.md	UNCONFIRMED	the extension collision stays flagged

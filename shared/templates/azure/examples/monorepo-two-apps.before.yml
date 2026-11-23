@@ -1,0 +1,18 @@
+# Example: monorepo with two deployable Node apps (orders, storefront), one pipeline, one branch model (trunk).
+# Each app has its own Veracode application profile and its own container image.
+trigger:
+  branches:
+    include: [main]
+
+pool: Default
+
+stages:
+  - stage: build
+    jobs:
+      - job: build
+        steps:
+          - script: |
+              set -e
+              docker build -t orders:$(Build.BuildId) apps/orders
+              docker build -t storefront:$(Build.BuildId) apps/storefront
+            displayName: docker build both apps

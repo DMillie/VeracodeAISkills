@@ -19,7 +19,7 @@ Most users should use the prebuilt integration for their CI system
 - they need to orchestrate scans from their own service
 - a plugin is failing and you need to reproduce the underlying calls
 
-## REST lifecycle `[v: 2026-09-15 | docs.veracode.com/r/Configuring_a_Pipeline_Scan_with_the_REST_API]`
+## REST lifecycle [INT-63~]
 
 Base path: `https://api.veracode.com/pipeline_scan/v1`
 
@@ -77,7 +77,7 @@ without checking.
 
 ---
 
-## CLI and Docker `[v: 2026-09-15 | docs.veracode.com/r/r_pipeline_scan_examples]`
+## CLI and Docker [INT-64~]
 
 Veracode recommends the **Docker image over the ZIP download** for stability:
 
@@ -92,7 +92,7 @@ The **Veracode CLI** also runs a Pipeline Scan: `veracode static scan <artifact>
 with `--fail-on-severity`, `--fail-on-cwe`, `--baseline-file`, `--results-file`,
 `--policy-file` and `--summary-output`; exit code 3 when flaws match the criteria.
 Its results stay local like any Pipeline Scan, and `veracode package` builds the
-artifact for it `[v: 2026-10-09 | docs.veracode.com/r/veracode_static_scan]`.
+artifact for it [INT-65~].
 Note the CLI's flags use hyphens where the JAR's use underscores.
 
 ### Flags
@@ -129,7 +129,7 @@ Pattern:
 
 **`veracode/veracode-pipeline-mitigation`** pulls **approved** mitigations from an
 application's policy or sandbox scan and emits a Pipeline Scan baseline file
-`[v: 2026-09-15 | github.com/veracode/veracode-pipeline-mitigation]`. This is how
+[INT-66~]. This is how
 you stop the PR gate re-reporting flaws that AppSec has already formally accepted
 — otherwise developers see "failures" for risks the security team signed off on,
 which destroys trust in the gate faster than anything else.

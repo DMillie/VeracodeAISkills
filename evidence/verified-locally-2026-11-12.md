@@ -1,4 +1,4 @@
-# 8. Verified locally on 2026-11-12 (demo host, x86_64; local GitLab CE 19.5.4, runner 19.5 docker executor)
+# Verified locally on 2026-11-12 (lab host, x86_64; self-managed GitLab CE 19.5.4, runner 19.5 docker executor)
 
 | What | Result |
 |---|---|
@@ -20,4 +20,3 @@
 | SCA agent without `ci.sh` | download tgz by version, `sha256sum -c`, untar, `bin/srcclr scan --allow-dirty`: works in `python:3.11` and `maven:3.9-eclipse-temurin-17` (lab run 3, lab run 4). |
 | Veracode GitLab Workflow Integration | **not installed, not tested** (out of scope by instruction; documented in section 1a only). |
 
-Index and reading guide: `reference/integration-options.md`.

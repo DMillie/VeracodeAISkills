@@ -1,7 +1,7 @@
 # Applications, Sandboxes, Findings and Annotations
 
 **Traps in this file:** `severity` is exact-match (use `severity_gte`) ·
-severity lives at `finding_details.severity`, int for STATIC and string for SCA ·
+severity lives at `finding_details.severity`, int for STATIC, string *or* int for SCA ·
 closed findings are returned by default · `include_annot=TRUE` is what makes a
 ticket sync idempotent · app `name` search is a partial match · an empty
 collection has no `_embedded` key at all · findings cannot be filtered to a build
@@ -9,7 +9,7 @@ or scan name.
 
 ---
 
-## Applications `[v: 2026-09-15 | docs.veracode.com/r/c_apps_intro]`
+## Applications [INT-27~]
 
 `GET /appsec/v1/applications?name={name}&page={n}&size={n}`
 
@@ -21,10 +21,10 @@ or scan name.
   `.profile.business_criticality`.
 - **The compliance verdict is already here:**
   `profile.policies[].policy_compliance_status` (e.g. `DID_NOT_PASS`) plus
-  `last_policy_compliance_check_date` `[v: 2026-09-18 | live]` — see
+  `last_policy_compliance_check_date` [INT-28] — see
   `policy-and-compliance.md`. A portfolio compliance view needs no per-app call.
 
-### Filters `[v: 2026-09-15 | live]`
+### Filters [INT-29]
 
 `page`, `size`, `org`, `name`, `policy_id`, `policy_guid`, `legacy_id`,
 `business_unit`, `tag`, `policy`, `policy_compliance`, `scan_status`,
@@ -46,7 +46,15 @@ Other documented operations (`GET /{guid}`, `POST`, `PUT`, `DELETE`) exist;
 request bodies for profile creation are **unverified** here — check the
 Applications spec.
 
-## Sandboxes `[v: 2026-09-15 | docs.veracode.com/r/c_sandbox_create_rest]`
+Attaching a team to a profile worked as a **full-profile `PUT`**: read the
+profile, append `{"guid": <team_id>}` to `profile.teams`, write the whole
+`profile` back [INT-95]. A `PUT` replaces; sending only `teams` is not tried.
+
+**No Platform link.** This skill gives no URL pattern for a profile or a flaw in
+the Platform UI, so a tool built from it cannot deep-link to the review screen.
+Do not invent one.
+
+## Sandboxes [INT-30~]
 
 - `GET  /appsec/v1/applications/{application_guid}/sandboxes`
   → `_embedded.sandboxes[].guid`, `.name`
@@ -63,7 +71,7 @@ typo and wastes a lot of debugging.
 
 `GET /appsec/v2/applications/{application_guid}/findings`
 
-### Query parameters `[v: 2026-09-15 | docs.veracode.com/r/c_findings_v2_examples + Findings OpenAPI model]`
+### Query parameters [INT-31~]
 
 | Param | Type | Notes |
 |---|---|---|
@@ -83,7 +91,7 @@ typo and wastes a lot of debugging.
 | `sca_scan_mode` / `sca_dep_mode` | string | SCA; enum values **unverified** |
 | `page` / `size` | int | Standard pagination |
 
-### Envelope `[v: 2026-09-15 | Findings OpenAPI model]`
+### Envelope [INT-32~]
 
 ```jsonc
 {
@@ -95,17 +103,17 @@ typo and wastes a lot of debugging.
 
 This envelope shape (`_embedded.<collection>` + `page.*`) is consistent across
 `/appsec` collection endpoints. **When the collection is empty, `_embedded` is
-omitted entirely** — not an empty array `[v: 2026-09-15 | live]`:
+omitted entirely** — not an empty array [INT-33]:
 
 ```python
 items = body.get("_embedded", {}).get("findings", [])   # both levels, always
 ```
 
 The collection key is not always the resource name: `/appsec/v1/policies`
-returns `_embedded.policy_versions` `[v: 2026-09-15 | live]`. Print the first
+returns `_embedded.policy_versions` [INT-34]. Print the first
 response from any collection endpoint you have not used before.
 
-### Finding object `[v: 2026-09-15 | Findings OpenAPI model]`
+### Finding object [INT-35~]
 
 ```jsonc
 {
@@ -138,13 +146,15 @@ response from any collection endpoint you have not used before.
 
 **No top-level `severity`.** It is inside `finding_details`.
 
-### `finding_details` by scan type `[v: 2026-09-15 | Findings OpenAPI model]`
+### `finding_details` by scan type [INT-36~]
 
 **STATIC** — `severity` (**int 0–5**), `cwe.{id,name,href}`, `file_path`,
 `file_name`, `file_line_number`, `module`, `procedure`, `relative_location`,
 `exploitability`, `attack_vector`, `cvss`, `finding_category.{id,name}`
 
-**SCA** — `severity` (**string**), `cve.{name,cvss,severity,href}`, `cwe`,
+**SCA** — `severity` (**string** per the spec; one tenant returned an **int 2–5**
+here and the string at `cve.severity` [INT-87] — accept both),
+`cve.{name,cvss,severity,href}`, `cwe`,
 `component_filename`, `component_id`, `component_path[]`, `product_id`,
 `version`, `language`, `licenses[]`, `metadata`
 
@@ -158,7 +168,7 @@ at the Findings spec.
 - `GET /appsec/v2/applications/{guid}/findings/{issue_id}/dynamic_flaw_info`
   — request/response and attack vector
 
-`[v: 2026-09-15 | docs.veracode.com/r/c_rest_static_finding_data_path_intro]`
+[INT-37~]
 Exact response schemas **unverified**.
 
 ---
@@ -166,7 +176,7 @@ Exact response schemas **unverified**.
 ## Annotations
 
 `POST /appsec/v2/applications/{application_guid}/annotations`
-`[v: 2026-09-15 | docs.veracode.com/r/c_annotations_add_comment_rest, /r/c_annotations_propose_mitigation_rest, /r/c_annotations_approve_mitigation_rest]`
+[INT-38~]
 
 ```json
 { "issue_list": "1001,1002", "comment": "Ticket created: PROJ-123", "action": "COMMENT" }
@@ -212,11 +222,42 @@ parameter name is **unverified**.
 findings, or confirm against the Annotations spec before shipping a
 sandbox-scoped sync.
 
+**A proposal does not stay in the scope it was made in** [INT-90]. On one tenant
+a proposal made at Policy scope showed up on the same `issue_id` in **every
+sandbox** of the application, with the identical annotation and timestamp (seen
+on 3 profiles). So the same request appears in each context you read. Read
+every context if you must, but collapse requests on `(application, issue_id,
+annotation created)` — a triage list that follows invariant 12 literally still
+shows one request two or three times (37 rows for 27 requests on the first
+refresh). This does not settle the wire parameter above: it was not tried with a
+sandbox-scoped POST.
+
 ### Undocumented limits
 
-Comment maximum length, maximum `issue_list` size per call, success status code
-and response body are all **undocumented**. Chunk conservatively (~50 IDs), keep
-comments short, and do not assert a limit you cannot cite.
+Comment maximum length and maximum `issue_list` size per call are
+**undocumented**. A successful POST returned HTTP 200 with a body holding
+`findings` and `_links` [INT-92] (what is inside `findings[]` was not recorded).
+Chunk conservatively (~50 IDs), keep comments short, and do not assert a limit you cannot cite.
+
+### Structured mitigation fields — not covered
+
+Existing annotations read back `technique`, `specifics`, `remaining_risk` and
+`verification` (above), but this skill does not know how to **send** them on a
+POST: the body above has only `issue_list`, `comment`, `action`. Proposals made
+with a comment only were accepted and read back as `PROPOSED` [INT-92], yet the
+Platform UI asks for all four. Check the Annotations spec before building a tool
+that must fill them.
+
+### Finding only the proposed ones
+
+The skill's filter table has no `resolution_status` filter, and whether the API
+has one is **not verified**. What worked: pull each context with
+`include_annot=TRUE` and keep `finding_status.resolution_status` in
+`PROPOSED` / `APPROVED` / `REJECTED` locally [INT-91] (35 applications, about
+10 seconds, 5 parallel workers). Whether that holds on a tenant with thousands of
+findings is untested; the Reporting API route (`reporting.md`) was not tried.
+For approvers, "who may approve" (Mitigation Approver) has no verified recipe, see
+`identity.md`.
 
 ### Idempotency — the thing that makes a sync real
 
@@ -248,8 +289,7 @@ accepts SCA `issue_id`s.
 - **No closed date and no "as of" parameter.** Per-finding `first_found_date` /
   `last_seen_date` exist, but you cannot reconstruct last month's portfolio state
   from a current-state API. Trend needs snapshots you keep, or the Reporting API.
-- **Several sandboxes, same artifact = identical finding sets** `[v: 2026-10-02 |
-  live]`. Summing per application double counts. Key on
+- **Several sandboxes, same artifact = identical finding sets** [INT-39]. Summing per application double counts. Key on
   `(application, context_guid, issue_id)`.
 
 ## Incremental sync

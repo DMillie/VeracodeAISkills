@@ -1,7 +1,7 @@
 # Identity API — users, teams, roles, credentials
 
 Base path: `https://api.veracode.com/api/authn/v2`
-`[v: 2026-09-15 | docs.veracode.com/r/c_identity_intro]`
+[INT-56~]
 
 Note this shares the `/api/authn/v2` prefix with the OAuth token endpoint, and is
 **not** under `/appsec`.
@@ -29,6 +29,26 @@ revokes the old pair 24 hours later · OAuth clients cannot be created by an adm
 | `PUT` | `/users/{user_id}` | Query: `partial=true` to patch instead of replace |
 | `DELETE` | `/users/{user_id}` | |
 
+**A user who has not activated yet is invisible to the lookups.** After `POST /users`
+two new human users (`active: false`) were returned by none of `GET /users`,
+`?email_address=`, `?user_name=` or `/users/search`; they did appear as members in
+`GET /teams/{id}` [INT-93]. A "look up by e-mail, create if missing" step
+therefore creates duplicates on the second run. Also check the membership of the
+teams you own (`GET /teams/{id}` → `users[]`) before creating.
+
+**Creating a human user.** The `roles` entry that worked was
+`[{"role_name": "extreviewer"}]`, which the UI shows as "Reviewer" [INT-94]; the
+API role table in `auth-and-access.md` lists display names only for API roles,
+and the `role_name` of other human roles is not captured here (read `GET /roles`).
+Activation is by e-mail to the address given; an address with no mailbox leaves
+the account inactive (and, per above, hard to find).
+
+**The list record is short.** `GET /users` returned name, user name, e-mail and
+flags, with **no roles** [INT-96]. "Who is allowed to approve mitigations"
+(Mitigation Approver) therefore needs a `GET /users/{user_id}` per user or
+`GET /users/by_role/{role_id}`; neither was tried as a recipe here, so it is
+unverified.
+
 `GET /users/self` is the best smoke test for a new credential: it needs no admin
 role, so a failure there is authentication, and a success followed by a `403`
 elsewhere is authorization.
@@ -45,13 +65,13 @@ elsewhere is authorization.
 | `DELETE` | `/api_credentials/{api_creds_id}` | Revoke |
 | `DELETE` | `/api_credentials/user_id/{user_id}` | Revoke a user's credentials |
 
-`POST /api_credentials/user_id/{user_id}` works live `[v: 2026-10-02 | live]`:
+`POST /api_credentials/user_id/{user_id}` works live [INT-57]:
 an administrator gets a new **HMAC** key pair for another user (typically an API
 service account) without logging in as them. The response carries `api_id`,
 `api_secret` and `expiration_ts` — the only time the secret is shown.
 
 **One active pair per user; generating is the rotation.**
-`[v: 2026-10-09 | docs.veracode.com/r/HMAC_credentials]` Generating a new pair
+[INT-58~] Generating a new pair
 schedules the previous one to stop working **24 hours** later. There is no `PUT`
 on credentials.
 
@@ -70,10 +90,10 @@ Suggest this when a user is building CI automation (`recipes.md` §5).
 (`GET /users/{user_id}`, `roles[].is_api`). Without them the new keys
 authenticate and every call returns `403`. API roles can only be assigned to API
 service accounts — a human user returns
-`400 "Cannot assign API roles to human user"` `[v: 2026-09-15 | live]`.
+`400 "Cannot assign API roles to human user"` [INT-59].
 
 ## OAuth client credentials
-`[v: 2026-10-02 | Identity API spec 1.5 (SwaggerHub Veracode/veracode-identity_api), docs.veracode.com/r/OAuth_Client_credentials]`
+[INT-60~]
 
 A separate credential from the HMAC API credentials above.
 
@@ -91,7 +111,7 @@ A separate credential from the HMAC API credentials above.
 
 **`POST` needs at least one role or permission**, even with `is_scoped: false`.
 Without one it returns `400 "At least one role or permission is required."`
-`[v: 2026-10-02 | live]`. Roles are sent as `[{"role_description": "Results API"}]`.
+[INT-61]. Roles are sent as `[{"role_description": "Results API"}]`.
 The safe source is the owner's own API roles from `GET /users/{user_id}`.
 `expiration_days` is a string, up to 365.
 
@@ -116,7 +136,7 @@ list's `_embedded` key, whether an admin can rotate or revoke another user's
 client by `clientId`, and which role a service account needs to create its own
 client.
 
-Access tokens: `expires_in` 3599 seen live `[v: 2026-09-15 | live]`; the spec
+Access tokens: `expires_in` 3599 seen live [INT-62]; the spec
 states 3600.
 
 ## Roles and permissions

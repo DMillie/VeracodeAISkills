@@ -108,7 +108,7 @@ def sandbox_sast(vc, app_name, sandbox_name, min_sev=4):
         if f["finding_status"]["status"] != "OPEN":
             continue
         d = f["finding_details"]        # STATIC schema; SCA differs entirely
-        rows.append((d["severity"],     # int for STATIC, str for SCA
+        rows.append((d["severity"],     # int for STATIC; SCA: str per spec, int seen live [INT-87]
                      f["issue_id"], d["cwe"]["id"],
                      d["file_path"], d.get("file_line_number", "?")))
 
@@ -132,7 +132,7 @@ if __name__ == "__main__":
 ```python
 for f in sca_findings:
     d = f["finding_details"]
-    print(d["cve"]["name"], d["component_filename"], d["severity"])  # severity is a STRING
+    print(d["cve"]["name"], d["component_filename"], d["severity"])  # str per spec, int on one live tenant [INT-87]: handle both
 ```
 
 ---
@@ -252,7 +252,7 @@ first run reaches back six months at most.
 ## 4. Compliance check — "are we passing?"
 
 The verdict is on the application object, so the whole portfolio is one
-paginated call `[v: 2026-09-18 | live]`:
+paginated call [INT-75]:
 
 ```python
 def portfolio_compliance(vc):
@@ -346,7 +346,7 @@ Raise unprompted, because they surface in week one:
 The request behind this recipe: *"for every application, the results of the most
 recent release scan"*, where release and branch scans share sandboxes. REST
 cannot answer it (SKILL.md invariant 5). The XML chain can, and this pattern ran
-live `[v: 2026-10-02 | live]`: it reached past a newer branch scan to the older
+live [INT-76]: it reached past a newer branch scan to the older
 release build, and chose the newest of two matching builds.
 
 Before the code, tell the user:

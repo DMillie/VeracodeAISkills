@@ -62,4 +62,4 @@ Fixing findings is a separate job for the team or a remediation tool.
 CI syntax is GitLab (`templates/gitlab/`); the playbooks are SCM-neutral. Tested in a lab on a
 self-managed GitLab and a Veracode test tenant across Java, Kotlin, Scala, C#, Python, Go, PHP,
 Rails and TypeScript, one run per repository.
-Not tested on GitHub, Azure DevOps, Bitbucket or gitlab.com.
+Not tested on GitHub, Bitbucket or gitlab.com. Azure DevOps has its own skill, `veracode-azure-devops-onboarding`.

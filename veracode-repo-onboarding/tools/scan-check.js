@@ -1,5 +1,5 @@
 // Reads a Veracode Pipeline Scan results.json and flags the ways a wrong package scans green.
-// Every check comes from a case observed on 2026-11-12 (see VALIDATED.md). Zero dependencies.
+// Every check comes from a case observed on 2026-11-12 (see evidence/lab-runs.md in the source repository). Zero dependencies.
 'use strict';
 const SEV = { 5: 'Very High', 4: 'High', 3: 'Medium', 2: 'Low', 1: 'Very Low', 0: 'Informational' };
 const THIRD = /(^|\/)(node_modules|vendor|site-packages|dist-packages|\.venv|bower_components)\//i;
@@ -57,7 +57,7 @@ module.exports = { checkScan };
 
 if (require.main === module) {
   const fs = require('fs'); const a = process.argv.slice(2);
-  if (!a.length) { console.error('usage: node scan-check.js results.json [--module NAME]... [--place PATH]...'); process.exit(2); }
+  if (!a.length) { console.error('usage: node scan-check.js results.json [--module NAME]... [--place PATH]...  (Go packages: --module GOLANG, the engine names the module "GOLANG files within ...")'); process.exit(2); }
   const o = { expected_modules: [], expected_places: [] };
   for (let i = 1; i < a.length; i += 2) { if (a[i] === '--module') o.expected_modules.push(a[i + 1]); if (a[i] === '--place') o.expected_places.push(a[i + 1]); }
   const r = checkScan(JSON.parse(fs.readFileSync(a[0], 'utf8')), o);

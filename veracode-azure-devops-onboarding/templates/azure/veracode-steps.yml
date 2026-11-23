@@ -1,0 +1,253 @@
+# Veracode scanning steps for Azure Pipelines, v1.0.0. A STEPS template for self-hosted Linux agents
+# (Java, Python 3, curl, jq on the agent; no Docker needed). The consuming job PACKAGES first and
+# writes the package to the `package` path, then calls this file:
+#
+#   resources:
+#     repositories:
+#       - repository: veracode
+#         type: git
+#         name: veracode-pipelines
+#         ref: refs/tags/v1.0.0            # an exact tag, never a branch
+#   variables:
+#     - group: veracode                    # secrets VERACODE_API_KEY_ID / _SECRET (/ SRCCLR_API_TOKEN)
+#   ...
+#         - template: veracode-steps.yml@veracode
+#           parameters:
+#             appProfile: my-app
+#
+# What runs (every step continueOnError: nothing here fails the run in rollout stage "audit"):
+#   Pipeline Scan of the package -> directory scan (dependencies, secrets, IaC) -> [agent SCA]
+#   -> policy scan OR sandbox scan, chosen by the ref (submitted, not waited for)
+#   -> pipeline artifact <artifactName> with results.json, logs and the package listing.
+# Which ref scans where is written in two parameters only: policyScanRefs and sandboxRefs.
+# Tool versions and checksums are pinned below: the one place to bump them (new release of this repo).
+parameters:
+  - name: appProfile              # Veracode application profile, exact name; must exist (never created here)
+    type: string
+  - name: rolloutStage            # only audit exists in 1.x: findings and tool errors are reported, nothing fails
+    type: string
+    default: audit
+    values: [audit]
+  - name: package                 # file to scan: zip, jar, war... written by the consumer's own packaging step
+    type: string
+    default: $(Build.ArtifactStagingDirectory)/veracode/veracode-package.zip
+  - name: staticScan              # false: no Pipeline Scan, no policy/sandbox scan (language without Static support)
+    type: boolean
+    default: true
+  - name: policyScanRefs          # list of ref prefixes that get a policy scan (the compliance verdict)
+    type: object
+    default: ['refs/heads/main']  # e.g. ['refs/heads/main', 'refs/tags/v']. Tags: scan is named "Release <tag>"
+  - name: sandboxRefs             # list of {prefix, sandbox}; first matching prefix wins; policyScanRefs are tested first
+    type: object
+    default: []                   # e.g. [{prefix: 'refs/heads/develop', sandbox: develop}, {prefix: 'refs/heads/release/', sandbox: 'release-@suffix@'}]
+                                  # @suffix@ = the ref after the matched prefix, / and . turned into - (release/2.5 -> release-2-5). Sandbox is created if missing
+  - name: directoryScan           # Veracode CLI directory scan of the checkout (dependencies, secrets, IaC)
+    type: boolean
+    default: true
+  - name: scaAgent                # agent-based SCA with SRCCLR_API_TOKEN; only for ecosystems the agent supports (not pnpm)
+    type: boolean
+    default: false
+  - name: artifactName            # pipeline artifact; several calls in one pipeline (monorepo) need distinct names [A-Za-z0-9-]
+    type: string
+    default: veracode-results
+  - name: sourceDir               # directory of the application inside the checkout (directory scan, SCA agent)
+    type: string
+    default: $(Build.SourcesDirectory)
+  - name: apiWrapperVersion       # Veracode Java API wrapper, Maven Central
+    type: string
+    default: '26.10.20.1'
+  - name: apiWrapperSha256        # computed 2026-11-20; the jar's SHA-1 matched Maven Central's .sha1
+    type: string
+    default: 415764c77de672bcf2acaf61cdd9ab466f4cb45766b1650ab7b4673166736ad5
+  - name: pipelineScanVersion
+    type: string
+    default: '26.11.0'
+  - name: pipelineScanSha256      # computed 2026-11-20 from downloads.veracode.com (Veracode publishes none)
+    type: string
+    default: c579f60e1099a3b15b0b145da2896961e527dac5cbcc0a4109411e0f63cc3399
+  - name: cliVersion
+    type: string
+    default: '2.55.0'
+  - name: cliSha256               # computed 2026-11-20 from tools.veracode.com (Veracode publishes none)
+    type: string
+    default: 44fde332acc9401f51486404dba3289cff894cf32aafda612e0a8f1cbc1b2140
+  - name: scaAgentVersion
+    type: string
+    default: '3.8.125'
+  - name: scaAgentSha256          # srcclr-<version>-linux.tgz, PGP signature checked at bump time
+    type: string
+    default: cff739125b4464adb827169a86d670efd4e52257db9eb05339a74a118d53d6fa
+
+steps:
+  # 1. Decide, by the ref of this run, what the upload step does. Sets VC_KIND_<artifactName> (policy|sandbox|none)
+  #    and VC_SANDBOX_<artifactName>, VC_SCANNAME_<artifactName>. The two lists arrive as JSON.
+  - ${{ if eq(parameters.staticScan, true) }}:
+    - bash: |
+        set -uo pipefail
+        ref="$(Build.SourceBranch)"; sha="$(Build.SourceVersion)"; kind=none; sandbox=""; prefix=""
+        if [ "$(jq -r --arg r "$ref" 'map(. as $p | select($r | startswith($p)))|length' <<<"$POLICY_REFS")" -gt 0 ]; then
+          kind=policy
+        else
+          IFS=$'\t' read -r sandbox prefix < <(jq -r --arg r "$ref" 'map(. as $s | select($r | startswith($s.prefix)))|first|select(.)|[.sandbox,.prefix]|@tsv' <<<"$SANDBOX_REFS")
+          [ -n "$sandbox" ] && kind=sandbox
+        fi
+        branch="${ref#refs/heads/}"; suffix="$(echo "${ref#"${prefix:-}"}" | tr '/.' '--')"
+        sandbox="${sandbox//@suffix@/$suffix}"
+        case "$ref" in refs/tags/*) name="Release ${ref#refs/tags/}" ;; *) name="$branch ${sha:0:8}" ;; esac
+        echo "Veracode placement for $ref: kind=$kind sandbox='${sandbox}' scan name='$name'"
+        echo "##vso[task.setvariable variable=VC_KIND_${{ replace(replace(parameters.artifactName, '-', '_'), '.', '_') }}]$kind"
+        echo "##vso[task.setvariable variable=VC_SANDBOX_${{ replace(replace(parameters.artifactName, '-', '_'), '.', '_') }}]$sandbox"
+        echo "##vso[task.setvariable variable=VC_SCANNAME_${{ replace(replace(parameters.artifactName, '-', '_'), '.', '_') }}]$name"
+      displayName: 'Veracode: placement (${{ parameters.artifactName }})'
+      continueOnError: true
+      env:
+        POLICY_REFS: ${{ convertToJson(parameters.policyScanRefs) }}
+        SANDBOX_REFS: ${{ convertToJson(parameters.sandboxRefs) }}
+
+  # 2. Pipeline Scan of the package (minutes; results in the run).
+    - bash: |
+        set -uo pipefail
+        warn() { echo "##vso[task.logissue type=warning]$1"; echo "##vso[task.complete result=SucceededWithIssues;]"; exit 0; }
+        pkg="${{ parameters.package }}"
+        out="$(Build.ArtifactStagingDirectory)/veracode-out/${{ parameters.artifactName }}"; tools="$(Agent.TempDirectory)/veracode-tools"
+        rm -rf "$out" && mkdir -p "$out" "$tools"
+        [ -f "$pkg" ] || warn "Veracode Pipeline Scan skipped: no package at $pkg (the packaging step must write it)"
+        case "$pkg" in *.zip) python3 -m zipfile -l "$pkg" > "$out/package-listing.txt" ;; *) ls -l "$pkg" > "$out/package-listing.txt" ;; esac
+        cd "$tools"
+        zip="pipeline-scan-${{ parameters.pipelineScanVersion }}.zip"
+        if [ ! -f "$tools/pipeline-scan.jar" ]; then
+          curl -fsSLo "$zip" "https://downloads.veracode.com/securityscan/$zip" || warn "Veracode Pipeline Scan: download failed"
+          echo "${{ parameters.pipelineScanSha256 }}  $zip" | sha256sum -c - || warn "Veracode Pipeline Scan: checksum mismatch, not run"
+          python3 -m zipfile -e "$zip" . >/dev/null
+        fi
+        cd "$out"
+        for try in 1 2 3; do
+          java -jar "$tools/pipeline-scan.jar" \
+            --veracode_api_id "$VERACODE_API_KEY_ID" --veracode_api_key "$VERACODE_API_KEY_SECRET" \
+            --file "$pkg" --json_output_file results.json \
+            --project_name "$(Build.Repository.Name)" --project_ref "$(Build.SourceBranch)" \
+            --timeout 20 --issue_details false > pipeline-scan.log 2>&1
+          rc=$?
+          grep -q 'HTTP Response 429' pipeline-scan.log || break
+          echo "Veracode rate limit (6 scans a minute per API user), waiting $((try*60)) s"; sleep $((try*60))
+        done
+        grep -E 'SCAN_STATUS|Scannable modules|Analyzed|issues|ERROR|No files' pipeline-scan.log || true
+        [ -f results.json ] || warn "Veracode Pipeline Scan: no results.json (exit $rc), see pipeline-scan.log in the artifact"
+        [ "$rc" -le 200 ] || warn "Veracode Pipeline Scan: tool error (exit $rc), see pipeline-scan.log in the artifact"
+        python3 - <<'PY'
+        import collections, json
+        d = json.load(open("results.json")); f = d.get("findings", [])
+        sev = {5: "Very High", 4: "High", 3: "Medium", 2: "Low", 1: "Very Low", 0: "Informational"}
+        print("status", d.get("scan_status"), "| modules", d.get("modules"), "| findings", len(f))
+        print("by severity:", dict(collections.Counter(sev.get(x.get("severity"), "?") for x in f)))
+        print("by CWE:", dict(sorted(collections.Counter(x.get("cwe_id") for x in f).items())))
+        for x in sorted(f, key=lambda x: -x.get("severity", 0)):
+            s = x.get("files", {}).get("source_file", {})
+            print(f'  {sev.get(x.get("severity"), "?"):9} CWE-{x.get("cwe_id"):4} {s.get("file")}:{s.get("line")}  {x.get("issue_type")}')
+        print(f"VERACODE GATE: stage=${{ parameters.rolloutStage }} findings={len(f)} verdict=AUDIT (reported, nothing fails)")
+        PY
+      displayName: 'Veracode: Pipeline Scan (${{ parameters.artifactName }})'
+      continueOnError: true
+      env:
+        VERACODE_API_KEY_ID: $(VERACODE_API_KEY_ID)
+        VERACODE_API_KEY_SECRET: $(VERACODE_API_KEY_SECRET)
+
+  # Without a static scan the results folder still has to exist for the artifact.
+  - ${{ if ne(parameters.staticScan, true) }}:
+    - bash: mkdir -p "$(Build.ArtifactStagingDirectory)/veracode-out/${{ parameters.artifactName }}"
+      displayName: 'Veracode: results folder (${{ parameters.artifactName }})'
+      continueOnError: true
+
+  # 3. Dependency view: the CLI directory scan reads manifests and lockfiles (not pnpm-free: a repo
+  #    without a lockfile reports nothing and still ends green), and reports secrets and IaC problems.
+  - ${{ if eq(parameters.directoryScan, true) }}:
+    - bash: |
+        set -uo pipefail
+        warn() { echo "##vso[task.logissue type=warning]$1"; echo "##vso[task.complete result=SucceededWithIssues;]"; exit 0; }
+        out="$(Build.ArtifactStagingDirectory)/veracode-out/${{ parameters.artifactName }}"; tools="$(Agent.TempDirectory)/veracode-tools"
+        mkdir -p "$tools" "$out" && cd "$tools"
+        tgz="veracode-cli_${{ parameters.cliVersion }}_linux_x86.tar.gz"
+        if [ ! -d "$tools/veracode-cli_${{ parameters.cliVersion }}_linux_x86" ]; then
+          curl -fsSLo "$tgz" "https://tools.veracode.com/veracode-cli/$tgz" || warn "Veracode directory scan: CLI download failed (old versions are removed: mirror it)"
+          echo "${{ parameters.cliSha256 }}  $tgz" | sha256sum -c - || warn "Veracode directory scan: checksum mismatch, not run"
+          tar xzf "$tgz"
+        fi
+        "$tools/veracode-cli_${{ parameters.cliVersion }}_linux_x86/veracode" scan --type directory --source "${{ parameters.sourceDir }}" \
+          --format table --output "$out/veracode-directory-scan.txt" > "$out/directory-scan.log" 2>&1 \
+          || warn "Veracode directory scan: tool error, see directory-scan.log in the artifact"
+        [ -s "$out/veracode-directory-scan.txt" ] || warn "Veracode directory scan: no output"
+        for s in CRITICAL HIGH MEDIUM LOW; do echo "$s rows: $(grep -c "│ $s " "$out/veracode-directory-scan.txt" || true)"; done
+        head -60 "$out/veracode-directory-scan.txt"
+      displayName: 'Veracode: dependency (directory) scan (${{ parameters.artifactName }})'
+      workingDirectory: $(Agent.TempDirectory)
+      continueOnError: true
+      env:
+        VERACODE_API_KEY_ID: $(VERACODE_API_KEY_ID)
+        VERACODE_API_KEY_SECRET: $(VERACODE_API_KEY_SECRET)
+
+  # 4. Agent-based SCA (off by default). Results go to the SCA workspace, not to the application profile.
+  - ${{ if eq(parameters.scaAgent, true) }}:
+    - bash: |
+        set -uo pipefail
+        warn() { echo "##vso[task.logissue type=warning]$1"; echo "##vso[task.complete result=SucceededWithIssues;]"; exit 0; }
+        out="$(Build.ArtifactStagingDirectory)/veracode-out/${{ parameters.artifactName }}"; tools="$(Agent.TempDirectory)/veracode-tools"
+        mkdir -p "$tools/sca" "$out" && cd "$tools"
+        [ -n "${SRCCLR_API_TOKEN:-}" ] || warn "Veracode SCA agent: SRCCLR_API_TOKEN is empty (variable group veracode, CI-type agent token)"
+        tgz="srcclr-${{ parameters.scaAgentVersion }}-linux.tgz"
+        if [ ! -x "$tools/sca/bin/srcclr" ]; then
+          curl -fsSLo "$tgz" "https://sca-downloads.veracode.com/$tgz" || warn "Veracode SCA agent: download failed"
+          echo "${{ parameters.scaAgentSha256 }}  $tgz" | sha256sum -c - || warn "Veracode SCA agent: checksum mismatch, not run"
+          tar xzf "$tgz" -C "$tools/sca" --strip-components=1
+        fi
+        cd "${{ parameters.sourceDir }}"
+        SRCCLR_SCM_URI="$(Build.Repository.Uri)" SRCCLR_SCM_REF="$(Build.SourceBranchName)" SRCCLR_SCM_REF_TYPE=branch \
+          "$tools/sca/bin/srcclr" scan > "$out/veracode-sca.txt" 2>&1
+        rc=$?
+        grep -E "Total Librar|Direct Librar|Transitive Librar|Vulnerable Librar|Vulnerabilities|Scan ID|Full Report Details" "$out/veracode-sca.txt" || true
+        [ "$rc" -eq 0 ] || warn "Veracode SCA agent: exit $rc, see veracode-sca.txt in the artifact"
+      displayName: 'Veracode: SCA agent scan (${{ parameters.artifactName }})'
+      continueOnError: true
+      env:
+        SRCCLR_API_TOKEN: $(SRCCLR_API_TOKEN)
+
+  # 5. Policy scan OR sandbox scan, by the placement step. Submits and returns: the agent is not held,
+  #    the verdict is read on the Platform. Veracode's Java API wrapper is used, not the extension task
+  #    Veracode@4: its credential variables collide with the variable group's (run 4, 2026-11-20).
+  - ${{ if eq(parameters.staticScan, true) }}:
+    - bash: |
+        set -uo pipefail
+        warn() { echo "##vso[task.logissue type=warning]$1"; echo "##vso[task.complete result=SucceededWithIssues;]"; exit 0; }
+        pkg="${{ parameters.package }}"; kind="$VC_KIND"; sandbox="$VC_SANDBOX"; name="$VC_SCANNAME"
+        out="$(Build.ArtifactStagingDirectory)/veracode-out/${{ parameters.artifactName }}"; tools="$(Agent.TempDirectory)/veracode-tools"
+        [ -f "$pkg" ] || warn "Veracode $kind scan skipped: no package at $pkg"
+        mkdir -p "$tools" "$out" && cd "$tools"
+        jar="vosp-api-wrappers-java-${{ parameters.apiWrapperVersion }}.jar"
+        if [ ! -f "$jar" ]; then
+          curl -fsSLo "$jar" "https://repo1.maven.org/maven2/com/veracode/vosp/api/wrappers/vosp-api-wrappers-java/${{ parameters.apiWrapperVersion }}/$jar" || warn "Veracode $kind scan: wrapper download failed, nothing submitted"
+          echo "${{ parameters.apiWrapperSha256 }}  $jar" | sha256sum -c - || warn "Veracode $kind scan: checksum mismatch, nothing submitted"
+        fi
+        sb=()
+        [ "$kind" = sandbox ] && sb=(-sandboxname "$sandbox" -createsandbox true)
+        # The wrapper reads VERACODE_API_KEY_ID / VERACODE_API_KEY_SECRET from the environment.
+        java -jar "$tools/$jar" -action UploadAndScan -appname "${{ parameters.appProfile }}" -createprofile false \
+          -filepath "$pkg" -version "$name" "${sb[@]}" \
+          -autoscan true -deleteincompletescan 1 > "$out/$kind-scan.log" 2>&1
+        rc=$?
+        cat "$out/$kind-scan.log"
+        [ "$rc" -eq 0 ] || warn "Veracode $kind scan: not submitted (wrapper exit $rc), see $kind-scan.log in the artifact"
+        echo "VERACODE ${kind^^} SCAN: stage=${{ parameters.rolloutStage }} profile='${{ parameters.appProfile }}' sandbox='${sandbox}' scan='$name' submitted, verdict not waited for"
+      displayName: 'Veracode: policy or sandbox scan (${{ parameters.artifactName }})'
+      condition: and(succeeded(), ne(variables['VC_KIND_${{ replace(replace(parameters.artifactName, '-', '_'), '.', '_') }}'], 'none'), ne(variables['VC_KIND_${{ replace(replace(parameters.artifactName, '-', '_'), '.', '_') }}'], ''))
+      continueOnError: true
+      env:
+        VERACODE_API_KEY_ID: $(VERACODE_API_KEY_ID)
+        VERACODE_API_KEY_SECRET: $(VERACODE_API_KEY_SECRET)
+        VC_KIND: $(VC_KIND_${{ replace(replace(parameters.artifactName, '-', '_'), '.', '_') }})
+        VC_SANDBOX: $(VC_SANDBOX_${{ replace(replace(parameters.artifactName, '-', '_'), '.', '_') }})
+        VC_SCANNAME: $(VC_SCANNAME_${{ replace(replace(parameters.artifactName, '-', '_'), '.', '_') }})
+
+  - publish: $(Build.ArtifactStagingDirectory)/veracode-out/${{ parameters.artifactName }}
+    artifact: ${{ parameters.artifactName }}
+    displayName: 'Veracode: publish results (${{ parameters.artifactName }})'
+    condition: always()
+    continueOnError: true

@@ -3,8 +3,8 @@
 One installation scans many repositories from a central configuration, without
 editing each repo's pipeline. Veracode calls these the **Workflow Integrations**
 (or **Repository Scanning**). Sources: `docs.veracode.com/r/SCM_integrations` and
-the per-platform pages `[v: 2026-10-09]`; the GitHub template and config read
-from `github.com/veracode/github-actions-integration` `[v: 2026-10-09]`.
+the per-platform pages [ONB-13~]; the GitHub template and config read
+from `github.com/veracode/github-actions-integration` [ONB-14~].
 
 ---
 

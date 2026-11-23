@@ -33,7 +33,9 @@ up yourself, or planning the rollout for a customer or team?"*
 | Onboarding plans, kickoff agendas, readiness questions, milestones, status updates, common stalls | `reference/csm-playbook.md` |
 
 Menu labels, product names and defaults change. The files carry
-`[v: date | source]` tags; if you can reach the web and a step depends on a label,
+evidence IDs such as `[ONB-nn]` (`~` after the ID: read from documentation, not run); dates and
+sources are in `evidence/register/ONB.md` of the source repository. The snapshot is from
+2026-10, with packaging corrections from 2026-11. If you can reach the web and a step depends on a label,
 default or version, check `docs.veracode.com` before presenting it as current. If
 you cannot, say the steps are from a dated snapshot.
 

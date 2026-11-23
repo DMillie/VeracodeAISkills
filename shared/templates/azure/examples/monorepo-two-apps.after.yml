@@ -1,0 +1,61 @@
+# Example: monorepo with two deployable Node apps (orders, storefront), one pipeline, one branch model (trunk).
+# Each app has its own Veracode application profile and its own container image.
+trigger:
+  branches:
+    include: [main]
+
+pool: Default
+
+# Veracode: shared steps template of the security team, pinned to a release tag (change the tag to upgrade).
+resources:
+  repositories:
+    - repository: veracode
+      type: git
+      name: veracode-pipelines
+      ref: refs/tags/v1.0.0
+
+stages:
+  - stage: build
+    jobs:
+      - job: build
+        steps:
+          - script: |
+              set -e
+              docker build -t orders:$(Build.BuildId) apps/orders
+              docker build -t storefront:$(Build.BuildId) apps/storefront
+            displayName: docker build both apps
+
+  # Veracode security scanning (rollout stage audit: nothing here fails the run).
+  # One template call per application: own profile, own package, own pipeline artifact.
+  - stage: veracode
+    displayName: veracode
+    dependsOn: []
+    jobs:
+      - job: veracode
+        variables:
+          - group: veracode
+        steps:
+          - checkout: self
+          # One readable-source zip per app: its package.json, lockfile and src/, no tests, no node_modules, no dist.
+          - bash: |
+              set -euo pipefail
+              out="$(Build.ArtifactStagingDirectory)/veracode"; mkdir -p "$out"
+              for app in orders storefront; do
+                (cd apps/$app && zip -qr "$out/$app.zip" package.json package-lock.json src -x '*.min.js' '*.test.*')
+                python3 -m zipfile -l "$out/$app.zip" | tail -3
+              done
+            displayName: 'Veracode: package both apps'
+            workingDirectory: $(Build.SourcesDirectory)
+            continueOnError: true
+          - template: veracode-steps.yml@veracode
+            parameters:
+              appProfile: acme-orders
+              package: $(Build.ArtifactStagingDirectory)/veracode/orders.zip
+              sourceDir: $(Build.SourcesDirectory)/apps/orders
+              artifactName: veracode-orders
+          - template: veracode-steps.yml@veracode
+            parameters:
+              appProfile: acme-storefront
+              package: $(Build.ArtifactStagingDirectory)/veracode/storefront.zip
+              sourceDir: $(Build.SourcesDirectory)/apps/storefront
+              artifactName: veracode-storefront

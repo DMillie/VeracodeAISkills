@@ -28,7 +28,7 @@ debugging anything else.
 |---|---|---|
 | Pair | API ID + API key (hex) | `client_id` + `client_secret` |
 | Env vars | `VERACODE_API_KEY_ID` / `VERACODE_API_KEY_SECRET` | `VERACODE_CLIENT_ID` / `VERACODE_CLIENT_SECRET` |
-| Wrong one in the slot | OAuth secret in an HMAC signer → `does not seem to be hexadecimal` / `Non-hexadecimal digit found` `[v: 2026-10-02 | live]` | HMAC key as a client secret → `401` from the token endpoint |
+| Wrong one in the slot | OAuth secret in an HMAC signer → `does not seem to be hexadecimal` / `Non-hexadecimal digit found` [INT-07] | HMAC key as a client secret → `401` from the token endpoint |
 
 One service account can hold both. When someone says "my Veracode credentials",
 find out which pair before writing auth code. Full HMAC detail — signing,
@@ -36,7 +36,7 @@ region prefixes, Postman — is in `hmac-and-xml-api.md`.
 
 ---
 
-## OAuth 2.0 client credentials `[v: 2026-09-15 | docs.veracode.com/r/OAuth_Client_credentials, /r/c_api_credentials3]`
+## OAuth 2.0 client credentials [INT-08~]
 
 GA since **December 2025**. Before that Veracode supported HMAC only — models
 trained earlier will insist OAuth does not exist. It does.
@@ -71,14 +71,14 @@ def get_token(base=os.getenv("VERACODE_API_BASE", "https://api.veracode.com")):
 
 - Scope follows the **roles on the service account**, not a `scope` parameter.
 - Token lifetime: `expires_in: 3599`, `token_type: Bearer`
-  `[v: 2026-09-15 | live]` (the Identity spec says 3600). Still do not hardcode
+  [INT-09] (the Identity spec says 3600). Still do not hardcode
   it: cache until shortly before `expires_in`, and refresh on `401` and retry once.
 - Creating and rotating OAuth clients (including for a service account without
   logging in as it) is in `identity.md`.
 - Advantages Veracode cites over HMAC: expiring credentials, narrower permission
   scoping.
 
-## HMAC `[v: 2026-10-09 | veracode-api-signing 26.5.0]`
+## HMAC [INT-10~]
 
 ```
 Authorization: VERACODE-HMAC-SHA-256 id=...,ts=...,nonce=...,sig=...
@@ -111,7 +111,7 @@ OAuth.
 Region prefixes, the regional XML hosts, the exception that leaks the secret,
 non-Python signers and the XML APIs themselves: `hmac-and-xml-api.md`.
 
-### HMAC credential lifecycle `[v: 2026-10-09 | docs.veracode.com/r/HMAC_credentials]`
+### HMAC credential lifecycle [INT-11~]
 
 - One active pair per user. Generating a new pair revokes the old one **24 hours
   later** — the rotation grace window.
@@ -134,7 +134,7 @@ Never hardcode credentials, never log a token, never echo a secret in CI.
 ## Roles — what a `403` means
 
 `403` on a working credential is a missing role, not a bad key. Relevant ones
-`[v: 2026-09-15 | docs.veracode.com/r/c_rest_annotations_intro, /r/c_API_roles]`:
+[INT-12~]:
 
 | Action | API service account role | UI user role |
 |---|---|---|
@@ -148,7 +148,7 @@ Never hardcode credentials, never log a token, never echo a secret in CI.
 | Reporting (Analytics) API | Reporting API | — |
 | Customizable PDF report | Results API | Executive, Reviewer, Security Lead |
 
-### Exact API role names `[v: 2026-09-15 | live]`
+### Exact API role names [INT-13]
 
 The 14 API roles, as the Identity API names them (`role_name`):
 
@@ -167,7 +167,7 @@ scans). Without `noteamrestrictionapi`, the account sees only its teams'
 applications and the extract looks complete when it is not.
 
 **API roles go on API service accounts only.** Assigning one to a human user
-returns `400 "Cannot assign API roles to human user"` `[v: 2026-09-15 | live]`.
+returns `400 "Cannot assign API roles to human user"` [INT-14].
 A human's credentials authenticate fine and then `403` on most API calls — the
 signature of "this is a person's key, not a service account's".
 
@@ -177,14 +177,14 @@ Two practical consequences:
    works with Results API; add auto-approval later and it starts returning `403`.
    Say this when designing a sync.
 2. **SCA agent-based APIs require a UI user account, not an API service account**
-   `[v: 2026-09-15 | docs.veracode.com/r/c_sourceclear_intro]`. This surprises
+   [INT-15~]. This surprises
    people who standardised on service accounts.
 
 Full mapping: `docs.veracode.com/r/c_API_roles`.
 
 ---
 
-## Rate limits `[v: 2026-09-15 | docs.veracode.com/r/About_API_Rate_Limiting]`
+## Rate limits [INT-16~]
 
 | Surface | Limit |
 |---|---|
@@ -228,6 +228,6 @@ workspace — often permits one and not the other. A connection failure on XML
 while REST works is network, not auth.
 
 Self-hosted CI runners and on-prem tooling need Veracode's IP ranges allowlisted
-`[v: 2026-09-15 | docs.veracode.com/r/c_about_github]`. Symptom is a connection
+[INT-17~]. Symptom is a connection
 timeout during upload that looks like a Veracode outage. The current IP list is
 published by Veracode — **do not recite ranges from memory.**

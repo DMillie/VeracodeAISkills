@@ -13,7 +13,7 @@ hundreds of applications will hit the 500/min rate limit and take hours.
 
 ---
 
-## Endpoints `[v: 2026-09-15 | docs.veracode.com/r/Reporting_REST_API]`
+## Endpoints [INT-77~]
 
 ```
 POST /appsec/v1/analytics/report          -> { "id": "<report_id>", ... }
@@ -95,7 +95,7 @@ date as the end: all of October 2026 is start `2026-10-01`, end `2026-11-01`.
 
 ## Six-month window — enforced from today
 
-`[v: 2026-09-15 | live]` The server rejects any start date older than six months
+[INT-78] The server rejects any start date older than six months
 **before today**, not merely ranges longer than six months:
 
 ```
@@ -148,9 +148,9 @@ generally; if a Reporting call `401`s under OAuth while other calls succeed, tha
 is worth flagging to the user rather than assuming a code bug.
 
 **Role:** `reportingApi` on an API service account. Without it the call returns
-`403 "Account is not authorized to access the API"` `[v: 2026-09-15 | live]`.
+`403 "Account is not authorized to access the API"` [INT-79].
 
-**Validation runs before authorization** `[v: 2026-09-15 | live]`. A malformed
+**Validation runs before authorization** [INT-80]. A malformed
 date returns `400` even for an account entitled to nothing. Do not read a `400`
 as proof that access works — only a `200` with a report `id` does.
 
@@ -191,8 +191,7 @@ Jira sync inside the rate limit.
 
 ## Custom PDF ("Customizable Report") API
 
-`[v: 2026-10-02 | docs.veracode.com/r/c_custom_pdf_api, SwaggerHub
-Veracode/custom-pdf-report-api/1.0.0, veracode-api-py 0.9.68 source]`
+[INT-81~]
 **Not yet run against a live tenant.**
 
 Produces the same PDF as Reports → "Customizable Report (PDF)" in the platform.

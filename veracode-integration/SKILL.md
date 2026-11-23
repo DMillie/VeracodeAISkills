@@ -45,9 +45,11 @@ Veracode's parameter names are unusually easy to get plausibly wrong.
 You may or may not have network access. Check which situation you are in and act
 accordingly. **Say which mode you are in when it affects the answer.**
 
-**Provenance tags.** Facts carry `[v: date | source]`. A source of `live` means it
-was observed on a real tenant; anything else (a docs page, a spec, library source)
-means it was read, not run. Untagged or *unverified* means do not assert it.
+**Evidence IDs.** Facts carry an ID such as `[INT-nn]`. No suffix means it was observed
+on a real tenant. `~` means it was read (a docs page, a spec, library source), not run.
+`?` or *unverified* or no ID means do not assert it. Dates and sources are in the evidence
+register of the source repository (`evidence/register/INT.md`), not in this skill. The facts
+here were checked between 2026-09-15 and 2026-10-09, except `[INT-87]` to `[INT-96]`, observed 2026-11-20 to 2026-11-23.
 
 **If you can reach the network**, the KB is your starting point, not your
 authority. Verify against the live source before shipping anything in these
@@ -56,7 +58,7 @@ categories — they change most often and fail loudest:
 - Action / plugin / extension version tags and their input names
 - Enum values (scan types, statuses, actions, report types)
 - Any field marked *unverified* in a reference file
-- Anything whose `[v: date]` tag is more than ~6 months old
+- Everything, if today is more than ~6 months after 2026-10-09
 
 Sources, in order of authority: the SwaggerHub spec for that API (URLs in
 `reference/api-index.md`) → `docs.veracode.com` → the integration's own
@@ -114,8 +116,11 @@ comments wherever they apply; do not assume the user will read prose.
    above" you must use `severity_gte=4`. The single most damaging error in this API.
 
 2. **There is no top-level `severity` on a finding.** It lives at
-   `finding_details.severity` — an **integer** for STATIC, a **string** for SCA.
-   Do not compare them with the same operator.
+   `finding_details.severity` — an **integer** for STATIC. For SCA the docs and
+   spec say **string**, but one tenant returned an **integer 2–5** there on all
+   1,082 SCA findings, with the string at `cve.severity` [INT-87]. Accept both
+   (int, or map the word); never compare it with the same operator without
+   checking the type.
 
 3. **Scale:** `5` Very High · `4` High · `3` Medium · `2` Low · `1` Very Low ·
    `0` Informational. Never send the word `HIGH` to a REST endpoint.
@@ -142,7 +147,7 @@ comments wherever they apply; do not assume the user will read prose.
    when `page >= body['page']['total_pages'] - 1`. Do not parse
    `_links.next.href`. Apply this to *every* collection endpoint, sandboxes and
    users included. An empty collection **omits `_embedded` entirely** rather than
-   returning `[]` `[v: 2026-09-15 | live]` — use `.get()` at both levels, or a new
+   returning `[]` [INT-01] — use `.get()` at both levels, or a new
    or quiet tenant raises `KeyError`.
 
 8. **Rate limits are per IP:** REST 500/min, XML 250/min, `detailedreport.do`
@@ -160,12 +165,11 @@ comments wherever they apply; do not assume the user will read prose.
     a plugin to Bearer tokens.
 
 11. **Never print a signing exception.** `veracode-api-signing` formats the secret
-    into its `VeracodeCredentialsError` messages `[v: 2026-10-09 | library source
-    26.5.0]`. Catch it and print a fixed message instead.
+    into its `VeracodeCredentialsError` messages [INT-02~]. Catch it and print a fixed message instead.
 
 12. **Count on the composite key.** When an application has several sandboxes
     scanning the same artifact, their findings are identical sets
-    `[v: 2026-10-02 | live]`. Dedupe and count on `(app, sandbox, issue_id)` for
+    [INT-03]. Dedupe and count on `(app, sandbox, issue_id)` for
     SAST and `(app, sandbox, component, cve)` for SCA — never `issue_id` or
     `cve_id` alone, or "flaws per application" silently doubles.
 

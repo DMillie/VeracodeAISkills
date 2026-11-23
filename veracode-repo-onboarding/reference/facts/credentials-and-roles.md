@@ -6,7 +6,7 @@
   `greenlightapiuser` (Pipeline Scan), `resultsapi`, `adminapi`, `noteamrestrictionapi`,
   `mitigationapi`, `reportingApi`, `extunifiedstaticscanuser`, `archerreports`. Minimum for this
   pack: upload + submit + Pipeline Scan (+ `adminapi` or team membership to create profiles).
-  **[live 2026-11-11 account listing; minimum set not isolated]**
+  [CRED-01]
 - Human users cannot hold API roles; automation runs on an API service account.
 
-Tags: **[live <date>]** observed in the lab on that date; **[2026-10, not re-verified]** carried over, check before relying on it.
+`[ID]` = entry in the evidence register (`evidence/` in the source repository). `~` = read, not run. `?` = carried over, not re-verified: check before relying on it.

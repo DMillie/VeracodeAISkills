@@ -88,7 +88,7 @@ starts returning 403 — different role.
 Other 403 signatures:
 
 - `"Account is not authorized to access the API"` on the Reporting API → the
-  account lacks `reportingApi` `[v: 2026-09-15 | live]`.
+  account lacks `reportingApi` [INT-86].
 - Authentication works but almost everything 403s → the credential belongs to a
   **human user**, who cannot hold API roles. Use an API service account.
 
@@ -142,7 +142,7 @@ outage. Do not recite IP ranges from memory — point at Veracode's published li
 |---|---|
 | `KeyError: 'cwe'` | Reading a STATIC field off an SCA finding. Branch on `scan_type`. |
 | `KeyError: 'severity'` on the finding | Severity is at `finding_details.severity`, not top level. |
-| `TypeError` comparing severity | STATIC severity is an **int**, SCA severity is a **string**. |
+| `TypeError` comparing severity | STATIC severity is an **int**; SCA is a string per the spec but an **int** on one live tenant [INT-87]. Check the type, accept both. |
 | `KeyError` on `_embedded` | Empty result set — `_embedded` may be absent. Use `.get()`. |
 | Agent-based SCA calls rejected | Missing `accept-encoding: gzip` or `user-agent` header. |
 | `VeracodeCredentialsError: ... does not seem to be hexadecimal` | The OAuth `client_secret` is in the HMAC variable. **The message contains the secret** — do not log it. |

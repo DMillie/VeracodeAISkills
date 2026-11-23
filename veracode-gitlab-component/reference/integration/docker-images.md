@@ -3,7 +3,7 @@
 Repositories listed by the Docker Hub API (7): `pipeline-scan`, `api-wrapper-java`, `scm-packaging`, `api-signing`, `vrm-runtime-agent`, `vulnerable-verademo-java`, `vulnerable-verademo-dotnet`. `veracode/veracode-cli` and `veracode/scm-integration` returned "object not found". No SCA agent (srcclr) image exists in this namespace.
 Source: https://hub.docker.com/v2/repositories/veracode/?page_size=100 - observed (2026-11-12).
 
-Digests below are the tag digests reported by the Docker Hub API (amd64). Verify with `docker pull <repo>@<digest>` before pinning: **verified locally 2026-11-12** for the four pinned images (`reference/integration/verified-locally.md`).
+Digests below are the tag digests reported by the Docker Hub API (amd64). Verify with `docker pull <repo>@<digest>` before pinning: **verified locally 2026-11-12** for the four pinned images (`evidence/verified-locally-2026-11-12.md` in the source repository).
 
 `veracode/pipeline-scan` (168 tags; each version has `X.Y.Z` and `cmd-X.Y.Z`; floating `latest` and `cmd`). Source: https://hub.docker.com/v2/repositories/veracode/pipeline-scan/tags?page_size=25
 

@@ -24,23 +24,40 @@ writing anything.
 If a user asks to "get SCA findings for application X" and their results live in
 agent-based scans, the Findings API will return nothing and look broken.
 
-## Upload-based SCA via the Findings API `[v: 2026-09-15 | Findings OpenAPI model]`
+## Upload-based SCA via the Findings API [INT-82~]
 
 `GET /appsec/v2/applications/{guid}/findings?scan_type=SCA`
 
 - `scan_type=SCA` **cannot be combined** with STATIC/DYNAMIC/MANUAL. Separate call.
 - Extra params: `cve`, `cvss`, `cvss_gte`, `sca_scan_mode`, `sca_dep_mode`
   (last two: enum values **unverified**).
-- `finding_details` for SCA: `severity` (**string**, unlike STATIC's int),
-  `cve.{name,cvss,severity,href}`, `cwe`, `component_filename`, `component_id`,
-  `component_path[]`, `product_id`, `version`, `language`, `licenses[]`, `metadata`.
+- `finding_details` for SCA: `severity`, `cve.{name,cvss,severity,href}`, `cwe`,
+  `component_filename`, `component_id`, `component_path[]`, `product_id`,
+  `version`, `language`, `licenses[]`, `metadata`.
+- **`severity` is a string in the spec but was an integer 2–5 on a live tenant**
+  (all 1,082 SCA findings); the string, if you want it, is at `cve.severity`
+  [INT-87]. Handle both shapes. Dynamic findings: fields not captured (below).
 
 ```python
 # SCA branch — do NOT reuse the STATIC field paths
+SEVWORD = {"VERY HIGH": 5, "HIGH": 4, "MEDIUM": 3, "LOW": 2, "VERY LOW": 1, "INFORMATIONAL": 0}
 for f in sca_findings:
     d = f["finding_details"]
-    print(d["cve"]["name"], d["component_filename"], d["severity"])  # severity is a str
+    sev = d["severity"]                       # int on the tenant seen, str per the spec
+    sev = sev if isinstance(sev, int) else SEVWORD.get(str(sev).upper().replace("_", " "))
+    print(d["cve"]["name"], d["component_filename"], sev)
 ```
+
+### No fix version in the Findings API
+
+A live SCA finding carried no fix, safe-version or upgrade field of any kind
+[INT-88]. Fields seen: `component_filename`, `component_id`, `component_path[].path`,
+`version`, `product_id`, `language`, `licenses[]`, `metadata.sca_dep_mode`,
+`metadata.sca_scan_mode`, `severity`, `cve.{name,cvss,cvss3,severity,vector,href}`,
+`cve.exploitability.{epss_*,exploit_observed,…}`, `cwe.{id,name,href}`. So this
+API cannot tell you which version to upgrade to. Where to get one (the SCA
+agent's scan output is the candidate) is **not verified**; say so rather than
+computing a "safe version" from the finding.
 
 ## Upload-based SCA for one specific build (XML)
 
@@ -50,7 +67,7 @@ section of `detailedreport.do` — HMAC only. Two levels: `<component>` is the
 inventory and its `<vulnerability>` children are the CVEs. Full attribute sets
 and parse guards: `hmac-and-xml-api.md` §7–8.
 
-Facts that change how SCA is reported `[v: 2026-10-02 | live]`:
+Facts that change how SCA is reported [INT-83]:
 
 - **A build's SCA results grow after the scan.** Veracode re-matches newly
   published CVEs against existing inventory without a rescan; 7 of 237 CVEs in
@@ -62,7 +79,7 @@ Facts that change how SCA is reported `[v: 2026-10-02 | live]`:
 - There is **no open/closed status** on an upload-based SCA vulnerability, only a
   `mitigation` true/false flag.
 
-## Agent-based SCA REST API `[v: 2026-09-15 | docs.veracode.com/r/c_sourceclear_intro]`
+## Agent-based SCA REST API [INT-84~]
 
 Base path `/srcclr/v3`. Spec: Veracode SCA Agent API Specification v3.0 on
 SwaggerHub.
@@ -75,7 +92,10 @@ Two non-obvious requirements:
 - **`accept-encoding: gzip` and a `user-agent` header are required.** Requests
   without them may be rejected. `requests` sets both by default; hand-rolled
   clients and `curl` scripts often do not.
-- **Requires a UI user account, not an API service account.**
+- **Requires a UI user account, not an API service account.** Seen live:
+  `/srcclr/v3/*` returned `403` for an API service account [INT-89]. The cause
+  was not verified (the role or workspace grant it lacks is unknown), so report
+  "not accessible" instead of retrying.
 
 Exact endpoint paths for workspaces, projects, issues, agents, teams and
 components are **unverified** — the resource names above come from the product's
@@ -88,7 +108,8 @@ A separate SCA Annotations API exists
 
 **Do not assume `/appsec/v2/applications/{guid}/annotations` accepts SCA
 `issue_id`s.** If a user wants to mitigate SCA findings, flag this as the thing
-to verify first.
+to verify first. A mitigation-review tool built on the Findings API covered
+STATIC only for this reason; SCA mitigations were not tried.
 
 ## SBOM
 
@@ -108,7 +129,7 @@ confirmed.
 | Model | Analyses containing URL scans, linked to app profiles | Separate product surface |
 | Results | Findings API, `scan_type=DYNAMIC` | unverified |
 
-## Dynamic Analysis REST API `[v: 2026-09-15 | docs.veracode.com/r/c_dynamic_intro]`
+## Dynamic Analysis REST API [INT-85~]
 
 Base path: `https://api.veracode.com/was/configservice/v1`
 
