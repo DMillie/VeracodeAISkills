@@ -37,6 +37,7 @@ veracode-repo-onboarding reference/platform-facts.md
 veracode-repo-onboarding tools/veracode_app_profile.py
 veracode-azure-devops-onboarding playbook/00-integration-ladder.md
 veracode-azure-devops-onboarding playbook/00-integration-ladder-azure.md
+veracode-azure-devops-onboarding playbook/00-before-first-onboarding-azure.md
 veracode-azure-devops-onboarding playbook/01-intake.md
 veracode-azure-devops-onboarding playbook/01-intake-azure.md
 veracode-azure-devops-onboarding playbook/02-discovery-azure.md

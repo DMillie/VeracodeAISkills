@@ -5,7 +5,7 @@ two lab runs of the shared template (2026-11-21), and Microsoft's and Veracode's
 2026-11-21. `[ID]` was observed in the lab; `[ID~]` was read in documentation or code and not run.
 **Not run at all:** rollout stages beyond `audit`, pull-request build validation, container scan, gating by
 baseline, agent SCA, `staticScan: false`, policy scans on tags, the copied-file rung, the extension-task rung, a
-monorepo with two calls, `ado.py run` and `ado.py profile`. Say so in the report.
+monorepo with two calls, `ado.py run` and `ado.py profile --create`. Say so in the report.
 
 ## Concepts (two lines each)
 - **Organisation > project > repository.** Two levels only. Settings, variable groups and the

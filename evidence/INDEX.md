@@ -11,30 +11,36 @@
 | ADO-07 | lab | 2026-11-20 | `shared/reference/facts/azure-devops.md` |
 | ADO-08 | lab | 2026-11-20 | `shared/reference/facts/azure-devops.md` |
 | ADO-09 | docs | 2026-11-21 | `shared/reference/facts/azure-devops.md` |
-| ADO-10 | docs | 2026-11-21 | `shared/playbook/03-scan-placement-azure.md`, `shared/reference/facts/azure-devops.md` |
+| ADO-10 | docs | 2026-11-21 | `shared/playbook/00-before-first-onboarding-azure.md`, `shared/playbook/03-scan-placement-azure.md`, `shared/reference/facts/azure-devops.md` |
 | ADO-11 | docs | 2026-11-21 | `shared/reference/facts/azure-devops.md` |
-| ADO-12 | docs | 2026-11-21 | `shared/reference/facts/azure-devops.md` |
-| ADO-13 | lab | 2026-11-21 | `shared/reference/facts/azure-devops.md` |
-| ADO-14 | lab | 2026-11-21 | `shared/reference/facts/azure-devops.md` |
+| ADO-12 | docs | 2026-11-21 | `shared/playbook/00-before-first-onboarding-azure.md`, `shared/reference/facts/azure-devops.md` |
+| ADO-13 | lab | 2026-11-21 | `shared/playbook/00-before-first-onboarding-azure.md`, `shared/reference/facts/azure-devops.md` |
+| ADO-14 | lab | 2026-11-21 | `shared/playbook/00-before-first-onboarding-azure.md`, `shared/reference/facts/azure-devops.md` |
 | ADO-15 | docs | 2026-11-21 | `shared/reference/facts/azure-devops.md` |
 | ADO-16 | lab | 2026-11-21 | `shared/reference/facts/azure-devops.md` |
 | ADO-17 | docs | 2026-11-21 | `shared/playbook/00-integration-ladder-azure.md`, `shared/reference/facts/azure-devops.md` |
 | ADO-18 | lab | 2026-11-20 | `shared/playbook/05-ci-change-azure.md`, `shared/reference/facts/azure-devops.md` |
 | ADO-19 | lab | 2026-11-20 | `shared/reference/facts/azure-devops.md` |
 | ADO-20 | lab | 2026-11-21 | `shared/playbook/03-scan-placement-azure.md`, `shared/reference/facts/azure-devops.md` |
-| ADO-21 | lab | 2026-11-21 | `shared/reference/facts/azure-devops.md` |
-| ADO-22 | lab | 2026-11-21 | `shared/reference/facts/azure-devops.md` |
+| ADO-21 | lab | 2026-11-21 | `shared/playbook/00-before-first-onboarding-azure.md`, `shared/reference/facts/azure-devops.md` |
+| ADO-22 | lab | 2026-11-21 | `shared/playbook/00-before-first-onboarding-azure.md`, `shared/reference/facts/azure-devops.md` |
 | ADO-23 | docs | 2026-11-21 | `shared/reference/facts/azure-devops.md` |
 | ADO-24 | lab | 2026-11-21 | `shared/playbook/00-integration-ladder-azure.md`, `shared/playbook/03-scan-placement-azure.md`, `shared/reference/facts/azure-devops.md` |
 | ADO-25 | lab | 2026-11-21 | `shared/playbook/00-integration-ladder-azure.md`, `shared/playbook/03-scan-placement-azure.md`, `shared/playbook/05-ci-change-azure.md`, `shared/reference/facts/azure-devops.md` |
 | ADO-26 | lab | 2026-11-21 | `shared/playbook/05-ci-change-azure.md`, `shared/reference/facts/azure-devops.md` |
 | ADO-27 | lab | 2026-11-21 | `shared/playbook/03-scan-placement-azure.md`, `shared/reference/facts/azure-devops.md` |
 | ADO-28 | lab | 2026-11-21 | `shared/playbook/05-ci-change-azure.md`, `shared/playbook/06-verification-azure.md`, `shared/reference/facts/azure-devops.md`, `shared/reference/troubleshooting.md`, `shared/templates/azure/README.md` |
-| ADO-29 | lab | 2026-11-21 | `shared/playbook/06-verification-azure.md`, `shared/reference/facts/azure-devops.md`, `shared/reference/troubleshooting.md`, `veracode-azure-devops-onboarding/AGENTS.md` |
+| ADO-29 | lab | 2026-11-21 | `shared/playbook/00-before-first-onboarding-azure.md`, `shared/playbook/06-verification-azure.md`, `shared/reference/facts/azure-devops.md`, `shared/reference/troubleshooting.md`, `veracode-azure-devops-onboarding/AGENTS.md` |
 | ADO-30 | lab | 2026-11-21 | `shared/reference/troubleshooting.md`, `shared/templates/azure/README.md` |
 | ADO-31 | lab | 2026-11-21 | `shared/playbook/04-packaging.md`, `shared/reference/troubleshooting.md` |
 | ADO-32 | lab | 2026-11-21 | `shared/playbook/05-ci-change-azure.md` |
 | ADO-33 | lab | 2026-11-21 | `shared/templates/azure/README.md` |
+| ADO-34 | source | 2026-11-23 | `shared/playbook/00-before-first-onboarding-azure.md` |
+| ADO-35 | lab | 2026-11-21 | `shared/playbook/00-before-first-onboarding-azure.md` |
+| ADO-36 | lab | 2026-11-22 | `shared/playbook/00-before-first-onboarding-azure.md` |
+| ADO-37 | lab | 2026-11-22 | `shared/playbook/00-before-first-onboarding-azure.md` |
+| ADO-38 | lab | 2026-11-22 | `veracode-azure-devops-onboarding/templates/onboarding-brief.md` |
+| ADO-39 | lab | 2026-11-21 | `shared/playbook/00-before-first-onboarding-azure.md`, `veracode-azure-devops-onboarding/SKILL.md` |
 | API-01 | lab | 2026-11-11 | `shared/reference/facts/rest-api.md` |
 | API-02 | lab | 2026-11-11 | `shared/reference/facts/rest-api.md` |
 | API-03 | lab | 2026-11-11 | `shared/reference/facts/rest-api.md` |

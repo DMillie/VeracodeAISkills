@@ -38,5 +38,6 @@ is the signal worth reading.
 ## Azure DevOps
 
 - Static: `tests/static/test_azure.py` (part of the static tier) checks the skill layout and front matter, that every file the Azure documents name exists, that every `ado.py` subcommand they mention is one the tool defines, that the decisive rules are present (additions only, one pull request per long-lived branch, never a branch ref, lint limits, unconfirmed extension finding, untested list), and that the YAML the playbook tells an agent to add is pinned, has no credentials and no container.
+- Static also checks that the setup page for a person and the brief template exist, are linked from SKILL.md, AGENTS.md and the intake playbook, and carry no lab names.
 - Routing: `behaviour/routing.json` has Azure asks that must pick `veracode-azure-devops-onboarding` and GitLab asks that must not (`must_not`).
 - Not covered by the static tier: any run against Azure DevOps. One lab run exists (`evidence/register/ADO.md`); the skill as an installed skill has not been run.

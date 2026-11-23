@@ -2,7 +2,8 @@
 """Azure DevOps helper for onboarding one repository to Veracode. Standard library only.
 
 Credentials come from the environment and are never printed: AZURE_DEVOPS_ORG (name or https://dev.azure.com/<name>)
-and AZURE_DEVOPS_PAT. Global options before or after the subcommand: --project (default veracode-demo), --json.
+and AZURE_DEVOPS_PAT. Global options before or after the subcommand: --project (default: AZURE_DEVOPS_PROJECT from the
+environment, else the lab's sample project veracode-demo), --json.
 
   ado.py discover <repo>                      everything to know before changing a repository (read only)
   ado.py clone <repo> <dir>                   git clone, token in an http.extraheader only (never stored)
@@ -489,8 +490,8 @@ def cmd_profile(a, az):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     common = argparse.ArgumentParser(add_help=False)
-    common.add_argument("--project", default="veracode-demo"); common.add_argument("--json", action="store_true")
-    ap.add_argument("--project", default="veracode-demo"); ap.add_argument("--json", action="store_true")
+    common.add_argument("--project", default=os.environ.get("AZURE_DEVOPS_PROJECT") or "veracode-demo"); common.add_argument("--json", action="store_true")
+    ap.add_argument("--project", default=os.environ.get("AZURE_DEVOPS_PROJECT") or "veracode-demo"); ap.add_argument("--json", action="store_true")
     sub = ap.add_subparsers(dest="cmd", required=True)
     def add(name, fn, *pos, opts=()):
         p = sub.add_parser(name, parents=[common]); p.set_defaults(fn=fn)

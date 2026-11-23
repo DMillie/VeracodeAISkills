@@ -87,3 +87,5 @@ parse; use 1.3.1.
 ## Azure DevOps
 
 `veracode-azure-devops-onboarding` carries the Azure facts in `reference/facts/azure-devops.md` (register `evidence/register/ADO.md`), the `tools/ado.py` that makes every Azure DevOps call, and the template repository content in `templates/azure/`. What ran: one TypeScript repository on a cloud organisation with one self-hosted agent, `audit` stage (see the facts file and `evidence/lab-runs.md`). Not tested: stages beyond `audit`, pull-request build validation, container scan, gating by baseline, Microsoft-hosted agents. A static test is `tests/static/test_azure.py`; tests that need an organisation are in `tests/azure/`.
+
+Before the first run in a project, a person sets up what `veracode-azure-devops-onboarding/playbook/00-before-first-onboarding-azure.md` lists and hands the agent a filled-in `templates/onboarding-brief.md`.

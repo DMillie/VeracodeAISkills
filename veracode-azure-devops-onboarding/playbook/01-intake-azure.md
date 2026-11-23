@@ -1,5 +1,9 @@
 # 01 Azure: intake
 
+Before asking anything, run the checks in `00-before-first-onboarding-azure.md` (variable group, template repository,
+agent tools, profile): a failed check is a stop, not a question to work around. If you were given a brief
+(`templates/onboarding-brief.md`), its pre-approvals are the answers; say so in the plan.
+
 Read `01-intake.md`, then use this file for the answers. Ask in one grouped batch; accept "defaults".
 Never ask for a credential value.
 

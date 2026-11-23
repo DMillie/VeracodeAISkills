@@ -7,7 +7,7 @@ S = os.path.join(ROOT, "veracode-azure-devops-onboarding")
 SUBCOMMANDS = {"discover", "clone", "push", "validate", "detect", "pr-create", "pr-status", "pr-complete",
                "run", "runs", "run-wait", "run-log", "artifact", "profile"}
 docs = sorted(glob.glob(S + "/**/*.md", recursive=True))
-AZ = ("-azure.md", "/SKILL.md", "/AGENTS.md", "/repo-plan.md", "/repo-summary.md", "/azure-devops.md")
+AZ = ("-azure.md", "/SKILL.md", "/AGENTS.md", "/repo-plan.md", "/repo-summary.md", "/azure-devops.md", "/onboarding-brief.md")
 own = [f for f in docs if f.endswith(AZ)]   # the shared neutral and GitLab-era files are checked by sync_shared.py
 text = {f: open(f, encoding="utf-8").read() for f in docs}
 rel = lambda f: os.path.relpath(f, S)
@@ -35,6 +35,23 @@ for f in own:
     for l in re.findall(r"\]\(([A-Za-z0-9_.-]+\.md)\)", text[f]):
         if not os.path.exists(os.path.join(os.path.dirname(f), l)): links.add(f"{rel(f)} -> {l}")
 check("every relative link between playbook files resolves", not links, "; ".join(sorted(links)))
+# the setup page for a person and the brief template: present, linked, free of lab names
+SETUP, BRIEF = "playbook/00-before-first-onboarding-azure.md", "templates/onboarding-brief.md"
+for f in (SETUP, BRIEF): check(f"{f} exists", os.path.isfile(os.path.join(S, f)))
+check("SKILL.md links the setup page and the brief template", SETUP in skill and BRIEF in skill)
+check("the intake playbook sends the agent to the setup page first", "00-before-first-onboarding-azure.md" in text.get(os.path.join(S, "playbook/01-intake-azure.md"), ""))
+check("AGENTS.md lists both files", all(x in text.get(os.path.join(S, "AGENTS.md"), "") for x in (SETUP, BRIEF)))
+setup, brief = text.get(os.path.join(S, SETUP), ""), text.get(os.path.join(S, BRIEF), "")
+LAB = re.compile(r"veracode-demo|medialab|parcel-tracker|payments-service|depot-agent|orders-suite|dev\.azure\.com/[a-z0-9]|vsec|secrets\.sh|qwen|gemma", re.I)
+check("setup page and brief carry no lab names", not LAB.search(setup + brief), str(LAB.findall(setup + brief)[:4]))
+check("setup page covers group, template repository, agent, profile, token and what stays with the person",
+      all(re.search(p, setup) for p in (r"(?m)^## 1\. Variable group", r"(?m)^## 2\. Template repository", r"(?m)^## 3\. Build agent", r"(?m)^## 4\. .*profile", r"(?m)^## 5\. .*token", r"(?m)^## 6\. ")))
+check("every setup item has a check", setup.count("**Check:**") >= 4)
+check("token capabilities are marked derived, not tested", "derived from the calls" in setup and "[ADO-34~]" in setup)
+check("setup page says the Veracode job is not a container job and same project", "must not be a container job" in setup and "SAME project" in setup)
+check("brief pre-approves audit, names the profile, the PR completion choice and the caps", all(x in brief for x in ("`audit`", "<profile name>", "complete its own pull requests", "ado.py run", "Local Pipeline Scans")))
+check("brief keeps the stop rule and forbids credential values", "WAITING FOR PERMISSION" in brief and "credential value" in brief)
+check("brief has placeholders, no filled-in project", "<project>" in brief and "<repository>" in brief)
 for need in ("playbook/00-integration-ladder-azure.md", "playbook/01-intake-azure.md", "playbook/02-discovery-azure.md",
              "playbook/03-scan-placement-azure.md", "playbook/05-ci-change-azure.md", "playbook/06-verification-azure.md",
              "reference/facts/azure-devops.md", "templates/repo-plan.md", "templates/repo-summary.md",

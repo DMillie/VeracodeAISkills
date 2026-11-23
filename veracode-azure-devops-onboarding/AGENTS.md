@@ -65,12 +65,14 @@ the defaults, say so in the plan and continue.
 AGENTS.md, SKILL.md                    entry points
 playbook/00..06 (neutral)              SCM-neutral rules (read the Azure file beside each)
 playbook/*-azure.md                    the Azure versions
+playbook/00-before-first-onboarding-azure.md   what a person sets up once per project, with a check for each
 reference/facts/azure-devops.md        Azure facts with evidence ids
 reference/facts/*.md                   Veracode facts (pipeline scan, upload and scan, CLI, SCA, credentials)
 reference/troubleshooting.md           symptom, cause, fix (written for GitLab)
 reference/integration/, integration-options.md   what Veracode ships, pins, sources
 templates/azure/                       the template repository content (veracode-steps.yml) and its README
 templates/repo-plan.md, repo-summary.md   the plan and the report
+templates/onboarding-brief.md          the task brief a person fills in and hands to the agent
 tools/ado.py:                          all Azure DevOps calls -- discover, clone, push, validate, detect,
                                        pr-create, pr-status, pr-complete, run, runs, run-wait, run-log, artifact, profile
 tools/pipeline_scan_summary.py         counts by severity from results.json

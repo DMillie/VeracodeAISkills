@@ -9,6 +9,10 @@ Take one Azure DevOps repository from no security scanning to a pull request tha
 existing Azure Pipelines, and report what was verified. You use one tool, `tools/ado.py`, for every
 Azure DevOps call. Never write a REST call yourself.
 
+**First onboarding in a project, or a person setting it up?** `playbook/00-before-first-onboarding-azure.md` lists
+what must exist before any run (variable group, template repository, agent, profile, token) and how to check each;
+`templates/onboarding-brief.md` is the brief to hand an agent. If a check there fails, stop and say which.
+
 Read `AGENTS.md` first (goal, ground rules, workflow, file list). Then follow the steps in order;
 read each file when you reach its step, not before. Where a step has two files, read the neutral one
 first and the Azure one second; the Azure one wins.
@@ -85,7 +89,7 @@ submit mitigations or go beyond `audit`.
 - **Read in documentation, not run:** triggers, branch policies, resource authorization, the preview API,
   the extension's tasks. Marked `[ADO-nn~]`.
 - **Untested:** the copied-file rung and the extension rung, policy scans on tags, `@suffix@` sandbox names, agent
-  SCA, `staticScan: false`, a two-call monorepo, `ado.py run` and `ado.py profile`, stages beyond `audit`,
+  SCA, `staticScan: false`, a two-call monorepo, `ado.py run` and `ado.py profile --create` (reading a profile worked in the tests [ADO-39]), stages beyond `audit`,
   pull-request build validation, container scan, baseline and gating, Windows or arm64 agents, Microsoft-hosted
   agents, Azure DevOps Server, forks. Do not claim them.
 - The colliding extension task is an unconfirmed finding, see the facts file.
